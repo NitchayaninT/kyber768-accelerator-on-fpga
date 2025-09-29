@@ -8,8 +8,8 @@ module add_tb;
   reg [(`KYBER_N * `KYBER_R_WIDTH) - 1 : 0] x[3];  // old syntax is x[0:2;
   reg [(`KYBER_N * `KYBER_R_WIDTH) - 1 : 0] y;
   reg [(`KYBER_N * `KYBER_R_WIDTH)-1:0] msg_poly;
-  reg [(`KYBER_N * `KYBER_SPOLY_WIDTH) -1 : 0] e_1[3];
-  reg [(`KYBER_N * `KYBER_SPOLY_WIDTH) -1 : 0] e_2;
+  reg [(`KYBER_N * `KYBER_R_WIDTH) -1 : 0] e_1[3];
+  reg [(`KYBER_N * `KYBER_R_WIDTH) -1 : 0] e_2;
   wire [(`KYBER_N * (`KYBER_R_WIDTH + 1)) - 1 : 0] u[3];
   wire [(`KYBER_N * (`KYBER_R_WIDTH + 2)) - 1 : 0] v;
   wire valid;
@@ -31,10 +31,10 @@ module add_tb;
   );
 
   reg [(`KYBER_N * `KYBER_R_WIDTH) - 1 : 0] poly[0:4];
-  reg [(`KYBER_N * `KYBER_SPOLY_WIDTH) -1 : 0] small_poly[0:3];
+  reg [(`KYBER_N * `KYBER_R_WIDTH) -1 : 0] small_poly[0:3];
   initial begin
     $readmemh("add_poly.hex", poly);
-    $readmemb("add_small_poly.bin", small_poly);
+    $readmemh("add_small_poly.hex", small_poly);
     x[0] = poly[0];
     x[1] = poly[1];
     x[2] = poly[2];

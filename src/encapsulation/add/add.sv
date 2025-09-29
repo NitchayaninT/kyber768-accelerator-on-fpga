@@ -12,8 +12,8 @@ module add (
     input [(`KYBER_N * `KYBER_R_WIDTH) - 1 : 0] x[3],  // old syntax is x[0:2]
     input [(`KYBER_N * `KYBER_R_WIDTH) - 1 : 0] y,
     input [(`KYBER_N * `KYBER_R_WIDTH)-1:0] msg_poly,
-    input [(`KYBER_N * `KYBER_SPOLY_WIDTH) -1 : 0] e_1[3],
-    input [(`KYBER_N * `KYBER_SPOLY_WIDTH) -1 : 0] e_2,
+    input [(`KYBER_N * `KYBER_R_WIDTH) -1 : 0] e_1[3],
+    input [(`KYBER_N * `KYBER_R_WIDTH) -1 : 0] e_2,
     output reg [(`KYBER_N * (`KYBER_R_WIDTH + 1)) - 1 : 0] u[3],
     output reg [(`KYBER_N * (`KYBER_R_WIDTH + 2)) - 1 : 0] v,
     output reg valid,
@@ -43,7 +43,7 @@ module add (
 
 
   // seperate in0, and in4 because to avoid invalid state
-  multiplexer5x1 mux_uut (
+  multiplexer5x1 mux_uut0 (
       .selector(state),
       .in0(y),
       .in1(x[0]),
@@ -53,7 +53,7 @@ module add (
       .out(in_buf0)
   );
 
-  multiplexer5x1_small mux_small_uut (
+  multiplexer5x1 mux_uut1 (
       .selector(state),
       .in0(e_2),
       .in1(e_1[0]),
@@ -62,7 +62,6 @@ module add (
       .in4(msg_poly),
       .out(in_buf1)
   );
-
   always @(posedge clk) begin
     if (rst) begin
       state <= 0;
@@ -96,8 +95,8 @@ module add (
         3'b100: begin
           integer i;
           for (i = 0; i < 256; i++) begin
-            v[(i*14)+12]  <= temp_msb[i] ^ out_buf[(i*13)+12];  //sum bit
-            v[(i*14)+13]  <= temp_msb[i] & out_buf[(i*13)+12];  //carry bit
+            v[(i*14)+12]  <= temp_msb[i] ^ out_buf[(i*13)+12]; //sum bit
+            v[(i*14)+13]  <= temp_msb[i] & out_buf[(i*13)+12]; //carry bit
             v[(i*14)+:12] <= out_buf[(i*13)+:12];  // 12 bits from cla adder
           end
           state <= 3'b101;

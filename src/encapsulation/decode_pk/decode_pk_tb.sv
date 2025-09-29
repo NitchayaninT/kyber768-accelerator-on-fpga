@@ -13,7 +13,7 @@ module decode_pk_tb;
   );
   reg [(`KYBER_N)+(`KYBER_K * `KYBER_R_WIDTH * `KYBER_N)-1 : 0] sample_pk[0:4];
   initial begin
-    $readmemh("sample_pk.hex", sample_pk);
+    $readmemh("sample_pk.hex", sample_pk); //load sample value
     $monitor("Public_key:%h\nrho: %h\nt0: %h\nt1: %h\nt2: %h\n", public_key, rho,
              t_trans[0], t_trans[1], t_trans[2]);
     #(`DELAY) public_key = sample_pk[0];

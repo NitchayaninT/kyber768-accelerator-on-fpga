@@ -5,6 +5,7 @@
 // each coefficient in polynomial ring use on cla_adder
 // total of 256 cla_adder
 // 4rounds of addition is made and then copy value from buffer to output
+//
 module add (
     input clk,
     input enable,
@@ -12,8 +13,8 @@ module add (
     input [(`KYBER_N * `KYBER_R_WIDTH) - 1 : 0] x[3],  // old syntax is x[0:2]
     input [(`KYBER_N * `KYBER_R_WIDTH) - 1 : 0] y,
     input [(`KYBER_N * `KYBER_R_WIDTH)-1:0] msg_poly,
-    input [(`KYBER_N * `KYBER_SPOLY_WIDTH) -1 : 0] e_1[3],
-    input [(`KYBER_N * `KYBER_SPOLY_WIDTH) -1 : 0] e_2,
+    input [(`KYBER_N * `KYBER_R_WIDTH) -1 : 0] e_1[3],
+    input [(`KYBER_N * `KYBER_R_WIDTH) -1 : 0] e_2,
     output reg [(`KYBER_N * (`KYBER_R_WIDTH + 1)) - 1 : 0] u[3],
     output reg [(`KYBER_N * (`KYBER_R_WIDTH + 2)) - 1 : 0] v,
     output reg valid,
@@ -43,7 +44,7 @@ module add (
 
 
   // seperate in0, and in4 because to avoid invalid state
-  multiplexer5x1 mux_uut (
+  multiplexer5x1 mux_uut0 (
       .selector(state),
       .in0(y),
       .in1(x[0]),
@@ -53,7 +54,7 @@ module add (
       .out(in_buf0)
   );
 
-  multiplexer5x1_small mux_small_uut (
+  multiplexer5x1 mux_uut1 (
       .selector(state),
       .in0(e_2),
       .in1(e_1[0]),
@@ -96,8 +97,8 @@ module add (
         3'b100: begin
           integer i;
           for (i = 0; i < 256; i++) begin
-            v[(i*14)+12]  <= temp_msb[i] ^ out_buf[(i*13)+12];  //carry bit
-            v[(i*14)+13]  <= temp_msb[i] & out_buf[(i*13)+12];  //sum bit
+            v[(i*14)+12]  <= temp_msb[i] ^ out_buf[(i*13)+12];  //sum bit
+            v[(i*14)+13]  <= temp_msb[i] & out_buf[(i*13)+12];  //carry bit
             v[(i*14)+:12] <= out_buf[(i*13)+:12];  // 12 bits from cla adder
           end
           state <= 3'b101;
@@ -174,40 +175,5 @@ module multiplexer5x1 (
       4: out = in4;
       default: out = 'x;
     endcase
-  end
-endmodule
-
-module multiplexer5x1_small (
-    input [2:0] selector,
-    input [(`KYBER_N * `KYBER_SPOLY_WIDTH) - 1 : 0] in0,
-    input [(`KYBER_N * `KYBER_SPOLY_WIDTH) - 1 : 0] in1,
-    input [(`KYBER_N * `KYBER_SPOLY_WIDTH) - 1 : 0] in2,
-    input [(`KYBER_N * `KYBER_SPOLY_WIDTH) - 1 : 0] in3,
-    input [(`KYBER_N * `KYBER_R_WIDTH) - 1 : 0] in4,  // normal size polynomials
-    output reg [(`KYBER_N * `KYBER_R_WIDTH) - 1 : 0] out
-);
-
-  logic [`KYBER_SPOLY_WIDTH-1:0] coeff;
-  integer i;
-  always_comb begin
-    if (selector == 4) begin
-      out = in4;  // pass-through full polynomial
-    end else begin
-      for (i = 0; i < `KYBER_N; i = i + 1) begin
-        logic [`KYBER_SPOLY_WIDTH-1:0] coeff;
-        case (selector)
-          0: coeff = in0[i*`KYBER_SPOLY_WIDTH+:`KYBER_SPOLY_WIDTH];
-          1: coeff = in1[i*`KYBER_SPOLY_WIDTH+:`KYBER_SPOLY_WIDTH];
-          2: coeff = in2[i*`KYBER_SPOLY_WIDTH+:`KYBER_SPOLY_WIDTH];
-          3: coeff = in3[i*`KYBER_SPOLY_WIDTH+:`KYBER_SPOLY_WIDTH];
-          default: coeff = 'x;
-        endcase
-
-        // Expand small coefficient to 12-bit
-        out[i*`KYBER_R_WIDTH+:`KYBER_R_WIDTH] = (coeff == 3'b111) ? `KYBER_Q - 1 :  //3328
-        (coeff == 3'b110) ? `KYBER_Q - 2 :  //3327
-        coeff;  // 0,1,2
-      end
-    end
   end
 endmodule

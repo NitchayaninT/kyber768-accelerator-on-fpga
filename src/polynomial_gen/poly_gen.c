@@ -9,18 +9,24 @@ void print_bin(FILE *fp, int num) {
   }
 }
 
-
 int gen(FILE *fp, int type) {
   if (type == 1) {
-    for (int i = 0; i < 256;i++) {
+    for (int i = 0; i < 256; i++) {
       int randint = (rand() % 3329);
       fprintf(fp, "%03X", randint);
     }
   } else if (type == 2) {
     for (int i = 0; i < 256; i++) {
       int randint = (rand() % 5) - 2; // -2..2
-      int binval = randint & 0x7;     // 3-bit representation
-      print_bin(fp, binval);
+      switch (randint) {
+      case -1:
+        randint = 3328;
+        break;
+      case -2:
+        randint = 3327;
+        break;
+      }
+      fprintf(fp, "%03X", randint);
     }
   }
   fprintf(fp, "\n");
@@ -29,26 +35,20 @@ int gen(FILE *fp, int type) {
 
 int main(int argc, char *argv[]) {
   int type = 0;
-  char extension[5];
   printf("What type of polynomial to generate?\n");
   while (1) {
     printf("(1) Kyber Polynomial ring (2) Small polynomial\n");
     printf("Polynomial type: ");
     scanf("%d", &type);
-    if (type == 1) {
-      strcpy(extension, ".hex");
+    if (type ==1 || type ==2)
       break;
-    } else if (type == 2) {
-      strcpy(extension, ".bin");
-      break;
-    } else
-      printf("!Incorrect type!\n");
+    printf("!Incorrect type!\n");
   }
 
   char file_name[200] = "";
   printf("Enter File name : ");
   scanf("%s", file_name);
-  strcat(file_name, extension);
+  strcat(file_name, ".hex");
   FILE *fp = fopen(file_name, "w");
   if (!fp) {
     perror("Cannot open file");

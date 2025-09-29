@@ -17,7 +17,7 @@ module cla_adder_tb ();
       .in2(in2[DATA_WID-1:0]),
       //.carry_in(carry_in)
       //  Outputs
-      .sum(sum[DATA_WID:0]),
+      .sum(sum[DATA_WID:0])
       //.carry_out(carry_out)
   );
 
