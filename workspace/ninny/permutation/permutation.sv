@@ -1,10 +1,9 @@
 // input state has 1600 bits
 module keccak_round (
-    input clk;
-    input enable;
-    input rst;
-    input  [1599:0] state_in, 
-    input  [63:0]   rc_lane, // round constant    
+    input clk,
+    input enable,
+    input rst,
+    input  [1599:0] state_in,    
     output [1599:0] state_out
 );
 
@@ -48,4 +47,22 @@ module keccak_round (
     assign D[3]=C[2] ^ rol1(C[4]);
     assign D[4]=C[3] ^ rol1(C[0]);
 
+    // generating output
+   wire [63:0] A_out [0:24]; //lens
+   genvar x,y;
+   generate
+        for (x=0; x<5; x=x+1) begin : rows
+            for (y=0; y<5; y=y+1) begin : columns
+                assign A_out[x*5+y] = A_in[x*5+y] ^ D[y];
+            end
+        end 
+    endgenerate
+
+    // pack to state_out, len by len
+    genvar j;
+    generate 
+        for (j=0; j<25; j=j+1) begin : packing
+            assign state_out[j*64 +: 64] = A_out[j]; 
+        end 
+    endgenerate
 endmodule
