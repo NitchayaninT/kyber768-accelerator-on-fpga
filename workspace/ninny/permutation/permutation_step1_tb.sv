@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-module permutation_tb;
+module permutation_step1_tb;
     reg  clk = 0;
     reg  rst = 1;
     reg  enable = 0;
@@ -19,6 +19,5 @@ module permutation_tb;
         #10 state_in = 1600'h0;
         $finish;
     end
- 
   end
 endmodule
