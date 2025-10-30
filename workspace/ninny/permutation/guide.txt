@@ -22,3 +22,19 @@ Permutation
     - Get the output by XORing the original bit from the state WITH the parity D[x,y]
     - A'[x,y,z] = A[x,y,z] XOR D[x,z]
     - Meaning, we XOR every bit WITHIN the column WITH the same parity
+
+2. Rho : rotate each 64 bits lane by a fixed offset
+- Input = state array (1600 bits)
+- Steps
+    - Let A_out[0,0,z] = A_in[0,0,z], means lane (0,0) has offset r[0,0]=0 (no rotate)
+    - Before loop, let x = 1, y = 0 (to start from lane 1 instead of 0)
+    - Iterate from 0 to 23 (lane number)
+        - Compute offset for each lane by using the formula
+        - Offset = ((t-1)(t-2)/2) mod 64, while t = lane number
+        - Then, get A_out[x,y,z] = A[x,y, 64-Offset] -> the lane position gets shifted left by the Offset (bits rotation)
+
+3. Pi : lane repositioning. Moves each lane to new (x,y) locations
+- Input = state array (1600 bits)
+- Steps
+    - Loop within rows and cols (lane by lane)
+    - Apply formula A_out[x,y,z] = A_in[(x+3y)mod 5, x, z]
