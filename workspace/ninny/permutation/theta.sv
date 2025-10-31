@@ -54,7 +54,7 @@ module theta (
   generate
     for (x = 0; x < 5; x = x + 1) begin : rows
       for (y = 0; y < 5; y = y + 1) begin : columns
-        assign A_out[x*5+y] = A_in[x*5+y] ^ D[y];
+        assign A_out[x+(5*y)] = A_in[x+(5*y)] ^ D[x];
       end
     end
   endgenerate
@@ -67,5 +67,3 @@ module theta (
     end
   endgenerate
 endmodule
-
-// assign A_out[x+(5*y)] = A_in[x+(5*y)] ^ D[x];
