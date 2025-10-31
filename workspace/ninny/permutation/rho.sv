@@ -26,7 +26,7 @@ module rho (
             offset[10] = 3; offset[11] = 10; offset[12] = 43; offset[13] = 25; offset[14] = 39;
             offset[15] = 41; offset[16] = 45; offset[17] = 15; offset[18] = 21; offset[19] = 8;
             offset[20] = 18; offset[21] = 2; offset[22] = 61; offset[23] = 26; offset[24] = 14;
-            cal_offset = offset[x + 5*y]; // calculate offset based on row & column position
+            cal_offset = offset[x + (5*y)]; // calculate offset based on row & column position
         end
     endfunction
         
