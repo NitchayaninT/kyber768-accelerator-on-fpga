@@ -68,3 +68,4 @@ module theta (
   endgenerate
 endmodule
 
+// assign A_out[x+(5*y)] = A_in[x+(5*y)] ^ D[x];
