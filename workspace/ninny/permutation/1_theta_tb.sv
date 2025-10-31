@@ -1,13 +1,13 @@
 `timescale 1ns / 1ps
 
-module permutation_step1_tb;
+module 1_theta_tb;
     reg  clk = 0;
     reg  rst = 1;
     reg  enable = 0;
     reg  [1599:0] state_in;
     wire [1599:0] state_out;
 
-    permutation uut (
+    1_theta uut (
         .clk (clk),
         .enable (enable),
         .rst (rst),

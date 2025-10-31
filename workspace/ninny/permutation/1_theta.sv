@@ -1,5 +1,5 @@
 // input state has 1600 bits
-module keccak_round (
+module theta (
     input clk,
     input enable,
     input rst,
