@@ -1,13 +1,9 @@
 // input state has 1600 bits
 module theta (
-    input clk,
-    input enable,
-    input rst,
-    input [1599:0] state_in,
-    output [1599:0] state_out,
-    output [63:0] d_test [0:4]
+    input  [1599:0] state_in,
+    output [1599:0] state_out
+    //output [63:0] d_test[0:4]
 );
-
   // Unpack state into lanes with 64 bits
   wire [63:0] A_in[0:24];  // Array A_in is stored as 25 lanes, 64 bits per lane
   genvar i;
@@ -23,6 +19,13 @@ module theta (
   // C is to store parity of bits within column (each column stores 64 bits of parities)
   // D is to store parity of bits from 2 neighboring columns (stores in 64 bits form, each bit has different neighbor parity)
   wire [63:0] C[0:4], D[0:4];
+
+  // just for debug signal uncomment for simluation
+  /*
+  for (i = 0; i < 5; i = i + 1) begin : g_debug
+    assign d_test[i] = D[i];
+  end
+  */
 
   // assign columns, range from 0-4
   assign C[0] = A_in[0] ^ A_in[5] ^ A_in[10] ^ A_in[15] ^ A_in[20];
@@ -67,3 +70,4 @@ module theta (
     end
   endgenerate
 endmodule
+
