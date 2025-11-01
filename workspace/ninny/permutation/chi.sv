@@ -35,8 +35,8 @@ module chi (
             for (y=0; y<5; y=y+1) begin : columns
                 // input current lane, lane1, and lane2 
                 localparam integer lane_no = x+(5*y);
-                localparam integer lane1_no = (x*5)+(lane_no+1)%5;
-                localparam integer lane2_no = (x*5)+(lane_no+2)%5;
+                localparam integer lane1_no = (y*5)+(lane_no+1)%5;
+                localparam integer lane2_no = (y*5)+(lane_no+2)%5;
                 assign A_out[lane_no] = and_xor(A_in[lane_no],A_in[lane1_no],A_in[lane2_no]);
             end
         end 
