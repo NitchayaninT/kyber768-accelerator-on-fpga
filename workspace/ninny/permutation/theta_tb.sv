@@ -9,10 +9,7 @@ module theta_tb;
     wire [63:0] d_test [0:4];
 
     theta uut (
-        .clk (clk),
-        .enable (enable),
         .d_test(d_test),
-        .rst (rst),
         .state_in (state_in),
         .state_out(state_out)
     );
