@@ -48,9 +48,12 @@ module shake (
       valid <= 0;
       state_buffer <= 1600'h0;  // ← Initialize to avoid X's
     end else if (enable && !valid) begin
+      integer i = 1;
       if (round == 5'h00) begin
-        state_buffer <= {1344'h0, in};  // Load input
-        round <= round + 1;
+        for (i = 0; i < 25; i = i + 1) begin : unpacking
+          state_buffer[i] = flat_in[i*64+:64];  //assign 64 bits to each lane
+        end
+        round = round + 1;
       end else if (round <= 24) begin  // ← Rounds 1-24 (24 Keccak rounds)
         state_buffer <= iota_out;
         round <= round + 1;
@@ -60,4 +63,5 @@ module shake (
       end
     end
   end
+
 endmodule
