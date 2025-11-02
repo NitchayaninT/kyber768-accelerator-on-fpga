@@ -1,9 +1,8 @@
 `timescale 1ns/1ps
 `define DELAY 10
 module rho_tb;
-  reg [1599:0] in;
-  wire  [63:0] state_in[0:24];
-  wire [63:0] state_out[0:24];
+  reg [1599:0] state_in;
+  wire [1599:0] state_out;
 
   genvar i;
   generate
@@ -16,7 +15,7 @@ module rho_tb;
 
   initial begin
     in = {1408'h0, 192'hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA};
-    $monitor("state_out[0]:%h\nstate_out[1]=%h\nstate_out[3]=%h",state_out[0],state_out[1],state_out[2]);
+    $monitor("state_out : %h",state_out);
     #(`DELAY*50);
     $finish;
   end
