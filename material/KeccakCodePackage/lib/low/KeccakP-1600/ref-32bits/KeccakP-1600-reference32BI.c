@@ -28,7 +28,6 @@ Please refer to LowLevel.build for the exact list of other files it must be comb
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <inttypes.h>  // for PRIx64
 #include "brg_endian.h"
 #ifdef KeccakReference
 #include "displayIntermediateValues.h"
@@ -49,19 +48,6 @@ static unsigned int KeccakRhoOffsets[nrLanes];
 
 void toBitInterleaving(uint32_t low, uint32_t high, uint32_t *even, uint32_t *odd);
 void fromBitInterleaving(uint32_t even, uint32_t odd, uint32_t *low, uint32_t *high);
-
-static void dump_state64(const uint32_t *A, const char *tag)
-{
-    // A has 50 uint32_t words: lanes i=0..24 at A[2*i], A[2*i+1] (even/odd bits)
-    printf("%s\n", tag);
-    for (unsigned i = 0; i < 25; i++) {
-        uint32_t lo, hi;
-        fromBitInterleaving(A[2*i + 0], A[2*i + 1], &lo, &hi);
-        uint64_t L = ((uint64_t)hi << 32) | lo;
-        printf("%2u: %016" PRIx64 "\n", i, L);
-    }
-    printf("\n");
-}
 
 void toBitInterleaving(uint32_t low, uint32_t high, uint32_t *even, uint32_t *odd)
 {
@@ -468,7 +454,7 @@ static void theta(uint32_t *A)
 {
     unsigned int x, y, z;
     uint32_t C[5][2], D[5][2];
-    dump_state64(A, "Before theta (25 lanes)");
+
     for(x=0; x<5; x++) {
         for(z=0; z<2; z++) {
             C[x][z] = 0;
@@ -481,14 +467,10 @@ static void theta(uint32_t *A)
         for(z=0; z<2; z++)
             D[x][z] ^= C[(x+4)%5][z];
     }
-    
     for(x=0; x<5; x++)
         for(y=0; y<5; y++)
             for(z=0; z<2; z++)
                 A[index(x, y, z)] ^= D[x][z];
-
-    printf("After theta:\n");
-    dump_state64(A, "After theta (25 lanes)");
 }
 
 static void rho(uint32_t *A)
@@ -497,9 +479,6 @@ static void rho(uint32_t *A)
 
     for(x=0; x<5; x++) for(y=0; y<5; y++)
         ROL64(A[index(x, y, 0)], A[index(x, y, 1)], &(A[index(x, y, 0)]), &(A[index(x, y, 1)]), KeccakRhoOffsets[5*y+x]);
-
-    printf("After rho:\n");
-    dump_state64(A, "After rho (25 lanes)");
 }
 
 static void pi(uint32_t *A)
@@ -511,8 +490,6 @@ static void pi(uint32_t *A)
         tempA[index(x, y, z)] = A[index(x, y, z)];
     for(x=0; x<5; x++) for(y=0; y<5; y++) for(z=0; z<2; z++)
         A[index(0*x+1*y, 2*x+3*y, z)] = tempA[index(x, y, z)];
-    printf("After pi:\n");
-    dump_state64(A, "After pi (25 lanes)");
 }
 
 static void chi(uint32_t *A)
@@ -528,16 +505,12 @@ static void chi(uint32_t *A)
             for(z=0; z<2; z++)
                 A[index(x, y, z)] = C[x][z];
     }
-    printf("After chi:\n");
-    dump_state64(A, "After chi (25 lanes)");
 }
 
 static void iota(uint32_t *A, unsigned int indexRound)
 {
     A[index(0, 0, 0)] ^= KeccakRoundConstants[indexRound][0];
     A[index(0, 0, 1)] ^= KeccakRoundConstants[indexRound][1];
-    printf("After iota:\n");
-    dump_state64(A, "After iota (25 lanes)");
 }
 
 /* ---------------------------------------------------------------- */
