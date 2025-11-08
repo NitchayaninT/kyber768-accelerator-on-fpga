@@ -1,0 +1,75 @@
+name: XKCP CI
+
+# Run this workflow every time a new commit pushed to your repository
+on: push
+
+jobs:
+  permutations_different_low_level_implementations:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Initialize submodules
+        run: git submodule update --init --recursive
+
+      - name: Build and test
+        id: build-image
+        env:
+          CI_VERBOSE: 1
+          # For now, platforms other than x86 and ARM are not activated in the CI
+          # (this concerns mips(el),mips64(el), sparc64, riscv64)
+          # This is not active as XKCP endianness and memory alignment issues must
+          # be resolved in all the low-level layers: once done, this environment
+          # variable can be set to 1.
+          OTHER_PLATFORMS: 0
+        run: |
+          make -f Makefile.ci
+
+  all_generic64_implementation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v3
+
+      - name: Initialize submodules
+        run: git submodule update --init --recursive
+
+      - name: Install dependencies
+        run: sudo apt-get install -y xsltproc
+
+      - name: Build Unit Tests
+        run: make generic64/UnitTests
+
+      - name: Run Unit Tests
+        run: bin/generic64/UnitTests -a
+
+  all_x86-64_implementation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v3
+
+      - name: Initialize submodules
+        run: git submodule update --init --recursive
+
+      - name: Install dependencies
+        run: sudo apt-get install -y xsltproc
+
+      - name: Build x86-64 Unit Tests
+        run: make x86-64/UnitTests
+
+      - name: Run x86-64 Unit Tests
+        run: bin/x86-64/UnitTests -a
+
+      - name: Run x86-64 Unit Tests with AVX512 disabled
+        run: bin/x86-64/UnitTests -a --disableAVX512
+
+      - name: Run x86-64 Unit Tests with AVX2 disabled
+        run: bin/x86-64/UnitTests -a --disableAVX512 --disableAVX2
+
+      - name: Run x86-64 Unit Tests with SSSE3 disabled
+        run: bin/x86-64/UnitTests -a --disableAVX512 --disableAVX2 --disableSSSE3
