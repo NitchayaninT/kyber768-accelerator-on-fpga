@@ -28,6 +28,7 @@ Please refer to LowLevel.build for the exact list of other files it must be comb
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>  // for PRIx64
 #include "brg_endian.h"
 #ifdef KeccakReference
 #include "displayIntermediateValues.h"
@@ -48,6 +49,19 @@ static unsigned int KeccakRhoOffsets[nrLanes];
 
 void toBitInterleaving(uint32_t low, uint32_t high, uint32_t *even, uint32_t *odd);
 void fromBitInterleaving(uint32_t even, uint32_t odd, uint32_t *low, uint32_t *high);
+
+static void dump_state64(const uint32_t *A, const char *tag)
+{
+    // A has 50 uint32_t words: lanes i=0..24 at A[2*i], A[2*i+1] (even/odd bits)
+    printf("%s\n", tag);
+    for (unsigned i = 0; i < 25; i++) {
+        uint32_t lo, hi;
+        fromBitInterleaving(A[2*i + 0], A[2*i + 1], &lo, &hi);
+        uint64_t L = ((uint64_t)hi << 32) | lo;
+        printf("%2u: %016" PRIx64 "\n", i, L);
+    }
+    printf("\n");
+}
 
 void toBitInterleaving(uint32_t low, uint32_t high, uint32_t *even, uint32_t *odd)
 {
@@ -471,6 +485,9 @@ static void theta(uint32_t *A)
         for(y=0; y<5; y++)
             for(z=0; z<2; z++)
                 A[index(x, y, z)] ^= D[x][z];
+
+    printf("After theta:\n");
+    dump_state64(A, "After theta (25 lanes)");
 }
 
 static void rho(uint32_t *A)
