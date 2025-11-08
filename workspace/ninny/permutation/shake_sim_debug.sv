@@ -1,3 +1,4 @@
+// Code your design here
 `timescale 1ns / 1ps
 module shake (
     input clk,
@@ -38,9 +39,44 @@ module shake (
   iota iota_uut (
       .state_in(chi_out),
       .state_out(iota_out),
-      .ir(round)
+      .ir(round-1)
   );
 
+  // Little-endian lane packer for your 256-bit 'in'
+  function [1599:0] pack_init_256;
+    input [255:0] in;
+    integer i;
+    reg [7:0] b [0:31];
+    reg [63:0] lane [0:24];
+    reg [1599:0] S;
+    begin
+      // split to bytes
+      for (i = 0; i < 32; i = i + 1)
+        b[i] = in[8*i +: 8];  // b[0] = lowest byte of 'in'
+
+      // 4 lanes, little-endian within each 64-bit lane
+      lane[0] = {b[7],  b[6],  b[5],  b[4],  b[3],  b[2],  b[1],  b[0]};
+      lane[1] = {b[15], b[14], b[13], b[12], b[11], b[10], b[9],  b[8]};
+      lane[2] = {b[23], b[22], b[21], b[20], b[19], b[18], b[17], b[16]};
+      lane[3] = {b[31], b[30], b[29], b[28], b[27], b[26], b[25], b[24]};
+      for (i = 4; i < 25; i = i + 1) lane[i] = 64'd0;
+
+      // pack lanes 0..24 into 1600-bit state (i = x + 5y)
+      for (i = 0; i < 25; i = i + 1)
+        S[i*64 +: 64] = lane[i];
+
+      pack_init_256 = S;
+    end
+  endfunction
+
+  function [63:0] bswap64;
+    input [63:0] x;
+    begin
+      bswap64 = { x[7:0], x[15:8], x[23:16], x[31:24],
+                  x[39:32], x[47:40], x[55:48], x[63:56] };
+    end
+  endfunction
+  
   assign state_out = state_buffer;
   always @(posedge clk) begin
     if (rst) begin
@@ -49,7 +85,7 @@ module shake (
       state_buffer <= 1600'h0;  // ← Initialize to avoid X's
     end else if (enable && !valid) begin
       if (round == 5'h00) begin
-        state_buffer <= {1344'h0, in};  // Load input
+        state_buffer <= pack_init_256(in);  // Load input
         round <= round + 1;
       end else if (round <= 24) begin  // ← Rounds 1-24 (24 Keccak rounds)
         state_buffer <= iota_out;
@@ -360,25 +396,12 @@ module iota (
   for (j = 1; j < 25; j = j + 1) begin : g_aout
     assign A_out[j] = A_in[j];
   end
-
-  // pack to state_out, len by len
+  
+  // pack to state_out, lane by lane (not bytes!)
   genvar j;
-  generate
-    for (j = 0; j < 25; j = j + 1) begin : packing
-      assign state_out[j*64+:64] = A_out[j];
-    end
-  endgenerate
-endmodule
-
-// lane i -> bytes b[8*i + k], little-endian inside the lane
-/*
-genvar j,k;
-  generate
-    for (j = 0; j < 25; j=j+1) begin
-      for (k = 0; k < 8; k=k+1) begin
-         // k=0 is LSB byte of the 64-bit lane (little-endian within the lane)
-        assign state_out[(j*8 + k)*8 +: 8] = A_out[j][k*8 +: 8]; 
-        end
+    generate
+      for (j = 0; j < 25; j = j + 1) begin : packing
+        assign state_out[j*64+:64] = A_out[j];
       end
   endgenerate
-*/
+endmodule

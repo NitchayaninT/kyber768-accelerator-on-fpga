@@ -1,7 +1,6 @@
 {
     "C_Cpp.default.compilerPath": "C:/MinGW/bin/gcc.exe",
     "files.associations": {
-        "keccakp-1600-snp.h": "c",
-        "string": "c"
+        "keccakp-1600-snp.h": "c"
     }
 }
