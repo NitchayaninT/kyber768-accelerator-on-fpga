@@ -468,7 +468,7 @@ static void theta(uint32_t *A)
 {
     unsigned int x, y, z;
     uint32_t C[5][2], D[5][2];
-
+    dump_state64(A, "Before theta (25 lanes)");
     for(x=0; x<5; x++) {
         for(z=0; z<2; z++) {
             C[x][z] = 0;
@@ -481,6 +481,7 @@ static void theta(uint32_t *A)
         for(z=0; z<2; z++)
             D[x][z] ^= C[(x+4)%5][z];
     }
+    
     for(x=0; x<5; x++)
         for(y=0; y<5; y++)
             for(z=0; z<2; z++)
