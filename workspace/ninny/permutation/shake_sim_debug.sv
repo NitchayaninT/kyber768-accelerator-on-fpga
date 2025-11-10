@@ -7,8 +7,9 @@ module shake (
     input rst,
     input [255:0] in,
     output [1599:0] state_out,
-    output reg valid,
-  
+    output reg valid
+
+    /*
     // --- DEBUG PORTS ---
     output [1599:0] dbg_state_buf,
     output [1599:0] dbg_theta,
@@ -16,6 +17,7 @@ module shake (
     output [1599:0] dbg_pi,
     output [1599:0] dbg_chi,
     output [1599:0] dbg_iota
+    */
 );
 
   reg [4:0] round;
@@ -25,10 +27,10 @@ module shake (
   wire [1599:0] pi_out;
   wire [1599:0] chi_out;
   wire [1599:0] iota_out;
-  
+
   // round index for iota (5-bit, sized)
   wire [4:0] ir_w = (round == 5'd0) ? 5'd0 : (round - 5'd1);
- 
+
   theta theta_uut (
       .state_in (state_buffer),
       .state_out(theta_out)
@@ -51,17 +53,19 @@ module shake (
   iota iota_uut (
       .state_in(chi_out),
       .state_out(iota_out),
-    .ir(ir_w)
+      .ir(ir_w)
   );
 
-    assign dbg_state_buf = state_buffer;
-    assign dbg_theta     = theta_out;
-    assign dbg_rho       = rho_out;
-    assign dbg_pi        = pi_out;
-    assign dbg_chi       = chi_out;
-    assign dbg_iota      = iota_out;
-  
-  assign state_out = state_buffer;
+  /*
+  assign dbg_state_buf = state_buffer;
+  assign dbg_theta     = theta_out;
+  assign dbg_rho       = rho_out;
+  assign dbg_pi        = pi_out;
+  assign dbg_chi       = chi_out;
+  assign dbg_iota      = iota_out;
+  */
+
+  assign state_out     = state_buffer;
   always @(posedge clk) begin
     if (rst) begin
       round <= 5'h00;
@@ -121,7 +125,7 @@ module theta (
   // from the formula "D[x,z] = C[(x-1)mod5,z] XOR C[(x+1)mod5,(z-1)mod w]"
   // Column in focus shifts left by 1, so just C[x-1]
   // Column in focus shifts right and get the bits in bit position - 1, so need to rotate right to get the column of bit position - 1
-  
+
   function [63:0] rol1;
     input [63:0] v;
     begin
@@ -129,7 +133,7 @@ module theta (
     end
   endfunction
 
-  
+
   // get the prities of the 64 bits data in these 2 columns 
   assign D[0] = C[4] ^ rol1(C[1]);
   assign D[1] = C[0] ^ rol1(C[2]);
@@ -258,7 +262,7 @@ module pi (
   generate
     for (x = 0; x < 5; x = x + 1) begin : rows
       for (y = 0; y < 5; y = y + 1) begin : columns
-        assign A_out[x+(5*y)] = A_in[(((x+(3*y)) % 5)+(5*x))];
+        assign A_out[x+(5*y)] = A_in[(((x+(3*y))%5)+(5*x))];
       end
     end
   endgenerate
@@ -382,12 +386,12 @@ module iota (
   for (j = 1; j < 25; j = j + 1) begin : g_aout
     assign A_out[j] = A_in[j];
   end
-  
+
   // pack to state_out, lane by lane (not bytes!)
   genvar j;
-    generate
-      for (j = 0; j < 25; j = j + 1) begin : packing
-        assign state_out[j*64+:64] = A_out[j];
-      end
+  generate
+    for (j = 0; j < 25; j = j + 1) begin : packing
+      assign state_out[j*64+:64] = A_out[j];
+    end
   endgenerate
 endmodule
