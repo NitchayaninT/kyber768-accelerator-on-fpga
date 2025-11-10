@@ -497,6 +497,9 @@ static void rho(uint32_t *A)
 
     for(x=0; x<5; x++) for(y=0; y<5; y++)
         ROL64(A[index(x, y, 0)], A[index(x, y, 1)], &(A[index(x, y, 0)]), &(A[index(x, y, 1)]), KeccakRhoOffsets[5*y+x]);
+
+    printf("After rho:\n");
+    dump_state64(A, "After rho (25 lanes)");
 }
 
 static void pi(uint32_t *A)
@@ -508,6 +511,8 @@ static void pi(uint32_t *A)
         tempA[index(x, y, z)] = A[index(x, y, z)];
     for(x=0; x<5; x++) for(y=0; y<5; y++) for(z=0; z<2; z++)
         A[index(0*x+1*y, 2*x+3*y, z)] = tempA[index(x, y, z)];
+    printf("After pi:\n");
+    dump_state64(A, "After pi (25 lanes)");
 }
 
 static void chi(uint32_t *A)
@@ -523,12 +528,16 @@ static void chi(uint32_t *A)
             for(z=0; z<2; z++)
                 A[index(x, y, z)] = C[x][z];
     }
+    printf("After chi:\n");
+    dump_state64(A, "After chi (25 lanes)");
 }
 
 static void iota(uint32_t *A, unsigned int indexRound)
 {
     A[index(0, 0, 0)] ^= KeccakRoundConstants[indexRound][0];
     A[index(0, 0, 1)] ^= KeccakRoundConstants[indexRound][1];
+    printf("After iota:\n");
+    dump_state64(A, "After iota (25 lanes)");
 }
 
 /* ---------------------------------------------------------------- */
