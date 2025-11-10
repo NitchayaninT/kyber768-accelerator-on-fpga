@@ -25,13 +25,6 @@ int main() {
     KeccakP1600_Initialize(&state);
     
     // Your test input: 256'hf8f11229044dfea54ddc214aaa439e7ea06b9b4ede8a3e3f6dfef500c9665598
-    // Note: This needs to be in little-endian byte order
-    /*unsigned char input[32] = {
-        0x6d, 0xfe, 0xf5, 0x00, 0xc9, 0x66, 0x55, 0x98, // Bytes 0-7
-        0xa0, 0x6b, 0x9b, 0x4e, 0xde, 0x8a, 0x3e, 0x3f,  // Bytes 8-15
-        0x4d, 0xdc, 0x21, 0x4a, 0xaa, 0x43, 0x9e, 0x7e, // Bytes 16-23
-        0xf8, 0xf1, 0x12, 0x29, 0x04, 0x4d, 0xfe, 0xa5  // Bytes 24-31
-    };*/
 
     unsigned char input[32] = {
         0x98, 0x55, 0x66, 0xc9, 0x00, 0xf5, 0xfe, 0x6d,  // Bytes 0-7
@@ -47,8 +40,9 @@ int main() {
     print_state(&state);
     
     // Apply Keccak-f[1600] permutation (24 rounds)
-    KeccakP1600_Permute_Nrounds(&state,1);
-    
+    //KeccakP1600_Permute_Nrounds(&state,1);
+    KeccakP1600_Permute_24rounds(&state);
+
     printf("\nOUTPUT STATE (after 24 rounds):\n");
     print_state(&state);
     

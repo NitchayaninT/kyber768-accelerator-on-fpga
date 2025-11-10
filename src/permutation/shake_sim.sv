@@ -1,3 +1,5 @@
+// Code your design here
+
 `timescale 1ns / 1ps
 module shake (
     input clk,
@@ -15,6 +17,9 @@ module shake (
   wire [1599:0] pi_out;
   wire [1599:0] chi_out;
   wire [1599:0] iota_out;
+
+  // round index for iota (5-bit, sized)
+  wire [4:0] ir_w = round-1;
 
   theta theta_uut (
       .state_in (state_buffer),
@@ -38,10 +43,10 @@ module shake (
   iota iota_uut (
       .state_in(chi_out),
       .state_out(iota_out),
-      .ir(round)
+    .ir(ir_w)
   );
 
-  assign state_out = state_buffer;
+  assign state_out     = state_buffer;
   always @(posedge clk) begin
     if (rst) begin
       round <= 5'h00;
@@ -101,12 +106,14 @@ module theta (
   // from the formula "D[x,z] = C[(x-1)mod5,z] XOR C[(x+1)mod5,(z-1)mod w]"
   // Column in focus shifts left by 1, so just C[x-1]
   // Column in focus shifts right and get the bits in bit position - 1, so need to rotate right to get the column of bit position - 1
+
   function [63:0] rol1;
     input [63:0] v;
     begin
       rol1 = {v[62:0], v[63]};  // rotates left by 1 and 64th bit goes to LSB
     end
   endfunction
+
 
   // get the prities of the 64 bits data in these 2 columns 
   assign D[0] = C[4] ^ rol1(C[1]);
@@ -236,7 +243,7 @@ module pi (
   generate
     for (x = 0; x < 5; x = x + 1) begin : rows
       for (y = 0; y < 5; y = y + 1) begin : columns
-        assign A_out[x+(5*y)] = A_in[(((x+(3*y)) % 5)+(5*x))];
+        assign A_out[x+(5*y)] = A_in[(((x+(3*y))%5)+(5*x))];
       end
     end
   endgenerate
@@ -301,84 +308,71 @@ module chi (
 endmodule
 // modify some of the bits of Lane 0 in a manner that depends on the round index ir
 module iota (
-    input [1599:0] state_in,
-    input [4:0] ir,
+    input  [1599:0] state_in,
+    input  [4:0]    ir, // 0..23
     output [1599:0] state_out
 );
-  // Unpack state into lanes with 64 bits
-  wire [63:0] A_in [0:24];
-  wire [63:0] A_out[0:24];
-  genvar i;
-  generate
-    for (i = 0; i < 25; i = i + 1) begin : unpacking
-      assign A_in[i] = state_in[i*64+:64];  //assign 64 bits to each lane
-    end
-  endgenerate
-  // function to calculate round constant and return bit 0
-  function rc_bit;
-    input integer t;
-    reg [7:0] R;
-    reg R8;
-    integer i;
-    begin
-      if (t % 255 == 0) begin
-        rc_bit = 1'b1;
-      end else begin
-        R = 8'b10000000;  // initialize R to 10000000
-        for (i = 1; i <= (t % 255); i = i + 1) begin : xor_r8
-          R8 = R[7];  // store MSB which will be used to XOR R[4], R[5], R[6]
-          R = {R[6:0], 1'b0};  // left shift R by 1 by inserting 0 at LSB
-          R[0] = R[0] ^ R8;
-          R[4] = R[4] ^ R8;
-          R[5] = R[5] ^ R8;
-          R[6] = R[6] ^ R8;
-        end
-        rc_bit = R[0];  // returns LSB of R
-      end
-    end
-  endfunction
+  // Unpack
+  wire [63:0] A_in  [0:24];
+  wire [63:0] A_out [0:24];
 
-  // function to get the 64-bit round constant based on ir 
-  // formula = RC[2^j-1] = rc_bit(j+7ir)
-  // j is from 0 to 6 from the definition in fips202
-  // returns modified Lane 0 (64 bits)
-  function [63:0] RC64;
-    input integer ir;  // current round index
-    integer j;
-    reg [63:0] rc;
-    begin
-      rc = 64'h0;  // initialize all 64 bits to 0
-      for (j = 0; j <= 6; j = j + 1) begin : loop_rc
-        rc[(1<<j)-1] =
-            rc_bit(j + 7 * ir);  // modify only bits 0,1,3,7,15,31,63 in lane 0 based on ir
-        RC64 = rc;
-      end
-    end
-  endfunction
-
-  assign A_out[0] = A_in[0] ^ RC64(ir);  // Append modified bits to original Lane 0
-  for (j = 1; j < 25; j = j + 1) begin : g_aout
-    assign A_out[j] = A_in[j];
-  end
-
-  // pack to state_out, len by len
   genvar j;
   generate
-    for (j = 0; j < 25; j = j + 1) begin : packing
-      assign state_out[j*64+:64] = A_out[j];
+    for (j = 0; j < 25; j = j + 1) begin : unpacking
+      assign A_in[j] = state_in[j*64 +: 64];
+    end
+  endgenerate
+
+  // 64-bit round constants (canonical, little-endian lane bit positions)
+  function [63:0] rc64;
+    input int r;
+    begin
+      case (r)
+        0:  rc64 = 64'h0000000000000001;
+        1:  rc64 = 64'h0000000000008082;
+        2:  rc64 = 64'h800000000000808A;
+        3:  rc64 = 64'h8000000080008000;
+        4:  rc64 = 64'h000000000000808B;
+        5:  rc64 = 64'h0000000080000001;
+        6:  rc64 = 64'h8000000080008081;
+        7:  rc64 = 64'h8000000000008009;
+        8:  rc64 = 64'h000000000000008A;
+        9:  rc64 = 64'h0000000000000088;
+        10: rc64 = 64'h0000000080008009;
+        11: rc64 = 64'h000000008000000A;
+        12: rc64 = 64'h000000008000808B;
+        13: rc64 = 64'h800000000000008B;
+        14: rc64 = 64'h8000000000008089;
+        15: rc64 = 64'h8000000000008003;
+        16: rc64 = 64'h8000000000008002;
+        17: rc64 = 64'h8000000000000080;
+        18: rc64 = 64'h000000000000800A;
+        19: rc64 = 64'h800000008000000A;
+        20: rc64 = 64'h8000000080008081;
+        21: rc64 = 64'h8000000000008080;
+        22: rc64 = 64'h0000000080000001;
+        23: rc64 = 64'h8000000080008008;
+        default: rc64 = 64'h0;
+      endcase
+    end
+  endfunction
+
+  // XOR RC into lane (0,0). 
+  assign A_out[0] = A_in[0] ^ rc64(ir);
+
+  // pass-through lanes 1..24
+  genvar k;
+  generate
+    for (k = 1; k < 25; k = k + 1) begin : loop_aout
+      assign A_out[k] = A_in[k];
+    end
+  endgenerate
+
+  // Repack
+  genvar i;
+  generate
+    for (i = 0; i < 25; i = i + 1) begin : packing
+      assign state_out[i*64 +: 64] = A_out[i];
     end
   endgenerate
 endmodule
-
-// lane i -> bytes b[8*i + k], little-endian inside the lane
-/*
-genvar j,k;
-  generate
-    for (j = 0; j < 25; j=j+1) begin
-      for (k = 0; k < 8; k=k+1) begin
-         // k=0 is LSB byte of the 64-bit lane (little-endian within the lane)
-        assign state_out[(j*8 + k)*8 +: 8] = A_out[j][k*8 +: 8]; 
-        end
-      end
-  endgenerate
-*/
