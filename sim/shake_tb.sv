@@ -18,7 +18,6 @@ module shake_tb;
       .valid(valid)
   );
 
-
   always @(shake_uut.round) begin
     $display("After theta (round %d)", shake_uut.round);
     print_state_bytes(shake_uut.theta_out);
