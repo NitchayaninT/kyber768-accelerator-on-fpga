@@ -8,8 +8,8 @@ module cla_adder #(
     in1,
     in2,
     //carry_in,
-    sum
-   //carry_out// we will use this carry out for the last sum from v=y+msg_poly+e_2;
+    sum,
+   carry_out// we will use this carry out for the last sum from v=y+msg_poly+e_2;
 );
 
   input [DATA_WID - 1:0] in1;
