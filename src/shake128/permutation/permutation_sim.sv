@@ -1,7 +1,7 @@
 // Code your design here
 
 `timescale 1ns / 1ps
-module shake (
+module permutation (
     input clk,
     input enable,
     input rst,
@@ -9,7 +9,7 @@ module shake (
     output [1599:0] state_out,
     output reg valid
 );
-
+  
   reg [4:0] round;
   reg [1599:0] state_buffer;
   wire [1599:0] theta_out;
@@ -46,7 +46,7 @@ module shake (
     .ir(ir_w)
   );
 
-  assign state_out     = state_buffer;
+  assign state_out = state_buffer;
   always @(posedge clk) begin
     if (rst) begin
       round <= 5'h00;
