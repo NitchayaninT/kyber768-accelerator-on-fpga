@@ -2,121 +2,128 @@
 module sponge_const #(
     parameter integer R = 1344 // rate in SHAKE128
 )(
-    input clk,
-    input enable,
-    input rst,
-    input [255:0] in, // coins or seeds
-    input [3:0] domain, // domain separator 1111
-    input [13:0] output_len, // output length
-    output reg [5375:0] output_string // 5376 bits is the max output we can get in kyber's shake
+    input               clk,
+    input               enable,
+    input               rst,
+    input  [255:0]      in,          // coins or seeds
+    input  [3:0]        domain,      // domain separator 1111
+    input  [13:0]       output_len,  // output length in bits
+    output reg [5375:0] output_string // max 4*R bits
 );
-    //initialize
+    // Step 0: added domain seperator
     wire [259:0] in_updated;
-    assign in_updated = {domain, in}; // domain || coins/seeds = 260 bits
-    wire [R-1:0] padded_mask; //after padding, 1344 bits
-    wire [R-1:0] rate_block;
-    assign rate_block = {{(R-260){1'b0}}, in_updated}; // place message at LSB of rate block
+    assign in_updated = {domain, in}; // 260 bits
 
-    // Step 1 : Padding
+    wire [R-1:0] rate_block;
+    assign rate_block = {{(R-260){1'b0}}, in_updated}; // message in LSBs of rate
+
+    // Step 1 : padding
+    wire [R-1:0] padded_mask;
     padding #(
         .R(R)
     ) pad_inst (
         .input_len(11'd260), // input length in integer (260)
-        .block_out(padded_mask) // padded mask
+        .block_out(padded_mask)
     );
-    wire [R-1:0] padded_block = padded_mask ^ rate_block; // concatenate input
 
-    // Step 2 : calculate capacity bits
+    // apply pad mask to get padded block
+    wire [R-1:0] padded_block = padded_mask ^ rate_block;
+
+    // calculate capacity bits 
     localparam integer C = 1600 - R;
 
-    // Step 3 : Absorption phase (only 1 block here, so only absorb once)
+    // Step 2 : Absorbion (only once in this case)
     wire [1599:0] absorbed_block;
     assign absorbed_block = {{C{1'b0}}, padded_block};
 
-    // Step 4 : Apply Permutation to state
-    wire [1599:0] state_permuted;
-    wire perm_valid; // permutation will set valid to 1 when done
-    wire perm_enable;
-    // only run permutation while global enable is 1 AND permutation is not done
-    assign perm_enable = enable & ~perm_valid;
-    permutation_sim (
-        .clk(clk),
-        .enable(perm_enable),
-        .rst(rst),
-        .state_in(absorbed_block),
-        .state_out(state_permuted),
-        .valid(perm_valid) // permutation done flag
-    );
-
-    // Step 5 : Squeezing phase
-    // can support up to 4 blocks of output (4*R = 5376 bits)
+    // Step 3: Permutation core under FSM control
+    // Step 3.1 : Permute once
+    // Step 3.2 : Squeeze. If output_len <= bits_squeezed. Stop
+        // else, permute again and then squeeze until bits_squeezed = output_len
     localparam PH_IDLE    = 2'd0;
     localparam PH_PERMUTE = 2'd1;
     localparam PH_SQUEEZE = 2'd2;
     localparam PH_DONE    = 2'd3;
+
+    reg  [1:0]    phase;
+    reg  [1599:0] state_reg; // current sponge state S
+    reg  [13:0]   bits_squeezed; // how many output bits already written
+    reg           perm_enable;
+
+    wire [1599:0] perm_out;
+    wire          perm_valid;
+
+    // permutation core: takes state_reg, returns perm_out when perm_valid=1
+    permutation_sim u_perm (
+        .clk      (clk),
+        .enable   (perm_enable),
+        .rst      (rst),
+        .state_in (state_reg),
+        .state_out(perm_out),
+        .valid    (perm_valid)
+    );
+
     integer i;
-    integer bits_squeezed;
-    reg perm_enable;
-    reg [1:0] phase; // 0=IDLE, 1=PERMUTE, 2=SQUEEZE, 3=DONE
-    reg [1500:0] state_reg;
-    // When rst goes high → the always block is triggered, 
-    // if (rst) is true, and we set all our registers to known initial values.
+
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             phase         <= PH_IDLE;
             state_reg     <= 1600'b0;
-            bits_squeezed <= 14'd0; // up to 5376 bits
-            output_string <= {5376{1'b0}};
+            bits_squeezed <= 14'd0;
+            output_string <= {5376{1'b0}}; // initialize output str to 000000...
             perm_enable   <= 1'b0; 
-        end 
-        else begin
+        end else begin
             case (phase)
-                PH_IDLE: begin // if normal
+                // 0. Wait for 'enable' to start
+                PH_IDLE: begin
                     if (enable) begin
-                        // absorb single block
-                        state_reg     <= state_permuted;  // 1600-bit (padded_block || zeros)
+                        // load absorbed state and start FIRST permutation
+                        state_reg     <= absorbed_block; // 1344 bits with 256 security bits
                         bits_squeezed <= 14'd0;
                         output_string <= {5376{1'b0}};
-                        perm_enable   <= 1'b1; // start first permutation
                         phase         <= PH_PERMUTE;
+                    end
                 end
 
-                PH_PERMUTE: begin // if permutation 
+                // 1. Wait for permutation core to finish
+                PH_PERMUTE: begin
+                    perm_enable   <= 1'b1; // enable permutation (step 3.1)
                     if (perm_valid) begin
-                        // permutation occurs here
-                        state_reg   <= perm_out; // load permuted state
+                        // S <- f(S)
+                        state_reg   <= perm_out; 
+                        perm_enable <= 1'b0; // stop permutation, then go squeeze
                         phase       <= PH_SQUEEZE;
                     end
                 end
 
+                // 2. Squeeze up to 1344 bits from current state_reg
                 PH_SQUEEZE: begin
-                    // copy up to R bits from current state_reg into out_reg
+                    // copy the next block of bits from the rate part of S
                     for (i = 0; i < R; i = i + 1) begin
-                        if ((bits_squeezed + i) < output_len && (bits_squeezed + i) < 5376)
+                        if ((bits_squeezed + i) < output_len)
                             output_string[bits_squeezed + i] <= state_reg[i];
                     end
 
-                    // advance bits_squeezed
+                    // advance how many bits we've squeezed so far
                     if (output_len - bits_squeezed >= R)
-                        bits_squeezed <= bits_squeezed + R;
+                        bits_squeezed <= bits_squeezed + R; // for seeds (5376 bits)
                     else
-                        bits_squeezed <= output_len;
+                        bits_squeezed <= output_len; // for coins (1024 bits), which is less than R
 
-                    // if we still need more bits and haven’t exceeded 4 blocks:
+                    // if more bits are needed and we haven't exceeded 4 blocks
                     if (bits_squeezed < output_len && bits_squeezed < 4*R) begin
-                        perm_enable <= 1'b1;      // ask permutation to run again with state_reg
+                        perm_enable <= 1'b1;   // run permutation again on the current state_reg
                         phase       <= PH_PERMUTE;
                     end else begin
-                        phase <= PH_DONE;         // all requested bits produced
+                        phase       <= PH_DONE; // we're done
                     end
                 end
 
+                // 3. Done
                 PH_DONE: begin
-                    // hold out_reg; top can read output_string
+                    // can read output_string now
                 end
             endcase
         end
     end
-    // then, cut off output_string to output_len bits only
-    
 endmodule
