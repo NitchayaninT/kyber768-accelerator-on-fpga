@@ -7,7 +7,7 @@ module sponge_const #(
     input               rst,
     input  [255:0]      in,          // coins or seeds
     input  [3:0]        domain,      // domain separator 1111
-    input  [13:0]       output_len,  // output length in bits
+    input  [13:0]       output_len,  // output length 
     output reg [5375:0] output_string, // max 4*R bits
     output reg          done // done flag
 );
