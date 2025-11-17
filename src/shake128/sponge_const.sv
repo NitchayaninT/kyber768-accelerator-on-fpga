@@ -125,7 +125,7 @@ module sponge_const #(
 
                 // 3. Done
                 PH_DONE: begin
-                    done          <= 1'b1;
+                    done <= 1'b1;
                     // can read output_string now
                 end
             endcase
