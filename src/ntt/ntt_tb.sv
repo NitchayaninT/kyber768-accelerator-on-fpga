@@ -1,22 +1,28 @@
 module ntt_tb;
-  reg [15:0] in [256];
-  wire [15:0] out [256];
+  reg [15:0] in[0:255];
+  wire [15:0] out[0:255];
   reg clk;
   reg enable;
   wire valid;
-  
-  ntt uut(
-    .clk(clk),
-    .enable(enable),
-    .in(in),
-    .out(out),
-    .valid(valid)
+
+  ntt uut (
+      .clk(clk),
+      .enable(enable),
+      .in(in),
+      .out(out),
+      .valid(valid)
   );
 
+  initial begin
+    enable = 0;
+    clk = 0;
+    forever #1 clk = ~clk;
+  end
 
   initial begin
-    $readmemb("test_vect.bin",in);
+    $readmemb("test_vect.bin", in);
     #10 enable = 1;
-    #50 $display("out", out);
+    wait(valid);
+    for (int i = 0; i < 256; i++) $display("in[%0d] = %0d", i, in[i]);
   end
 endmodule

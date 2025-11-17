@@ -4,11 +4,11 @@ module ntt (
     input enable,
     input clk,
     input [15:0] in[0:255],
-    output [15:0] out[0:255],
+    output reg [15:0] out[0:255],
     output reg valid
 );
 
-reg signed [15:0] zetas[0:127] = '{
+reg signed [11:0] zetas[0:127] = '{
     // stage 0 (1 group, stride=128)
     -1044,
 
@@ -46,7 +46,7 @@ reg signed [15:0] zetas[0:127] = '{
   reg [2:0] stage;
   wire [15:0] mux_out_a[0:127];
   wire [15:0] mux_out_b[0:127];
-  wire signed [15:0] mux_out_zeta[0:127];
+  wire signed [11:0] mux_out_zeta[0:127];
   wire [15:0] cooley_out0[0:127];
   wire [15:0] cooley_out1[0:127];
   wire [15:0] a[0:6][0:127];
@@ -94,7 +94,7 @@ reg signed [15:0] zetas[0:127] = '{
   endgenerate
 
 
-  wire signed [15:0] z[0:6][0:127];  // zetas arranged per stage
+  wire signed [11:0] z[0:6][0:127];  // zetas arranged per stage
   // arrange zetas for each stage
   generate
     for (i = 0; i < 128; i++) begin
@@ -136,6 +136,13 @@ reg signed [15:0] zetas[0:127] = '{
     end
   endgenerate
 
+  // only for simluation
+  initial begin
+      stage       = 0;
+      busy        = 0;
+      write_phase = 0;
+      valid       = 0;
+  end
 
   // main ntt behavior
   reg busy;
@@ -143,11 +150,12 @@ reg signed [15:0] zetas[0:127] = '{
   reg write_phase;
   always @(posedge clk) begin
     if (enable && !busy) begin
-      buf_in <= in;
+      for (k = 0; k < 256; k = k + 1)
+          buf_in[k] <= in[k];
       stage <= 0;
-      busy <= 1;
       valid <= 0;
       write_phase <= 0;
+      busy <= 1;
     end else if (busy && !write_phase) begin
       // Phase 0: Let combinational logic settle
       write_phase <= 1;
@@ -162,7 +170,8 @@ reg signed [15:0] zetas[0:127] = '{
 
       if (stage == 6) begin
         busy  <= 0;
-        out   <= buf_in;  // Will have results after this write completes
+        for (k = 0; k < 256; k = k + 1)
+            out[k] <= buf_in[k];
         valid <= 1;
       end else begin
         stage <= stage + 1;
@@ -178,7 +187,7 @@ endmodule
 module cooley_tookey (
     input [15:0] a,
     input [15:0] b,
-    input signed [15:0] zeta,
+    input signed [11:0] zeta,
     output [15:0] out0,
     output [15:0] out1
 );
