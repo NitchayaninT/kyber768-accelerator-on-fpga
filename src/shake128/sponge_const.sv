@@ -8,7 +8,8 @@ module sponge_const #(
     input  [255:0]      in,          // coins or seeds
     input  [3:0]        domain,      // domain separator 1111
     input  [13:0]       output_len,  // output length in bits
-    output reg [5375:0] output_string // max 4*R bits
+    output reg [5375:0] output_string, // max 4*R bits
+    output reg          done // done flag
 );
     // Step 0: added domain seperator
     wire [259:0] in_updated;
@@ -72,10 +73,13 @@ module sponge_const #(
             bits_squeezed <= 14'd0;
             output_string <= {5376{1'b0}}; // initialize output str to 000000...
             perm_enable   <= 1'b0; 
+            done          <= 1'b0;
         end else begin
             case (phase)
                 // 0. Wait for 'enable' to start
                 PH_IDLE: begin
+                    perm_enable <= 1'b0;
+                    done <= 1'b0; // clear done when starting a new run
                     if (enable) begin
                         // load absorbed state and start FIRST permutation
                         state_reg     <= absorbed_block; // 1344 bits with 256 security bits
@@ -88,7 +92,7 @@ module sponge_const #(
                 // 1. Wait for permutation core to finish
                 PH_PERMUTE: begin
                     perm_enable   <= 1'b1; // enable permutation (step 3.1)
-                    if (perm_valid) begin
+                    if (perm_valid) begin // if finished 24 rounds 
                         // S <- f(S)
                         state_reg   <= perm_out; 
                         perm_enable <= 1'b0; // stop permutation, then go squeeze
@@ -121,6 +125,7 @@ module sponge_const #(
 
                 // 3. Done
                 PH_DONE: begin
+                    done          <= 1'b1;
                     // can read output_string now
                 end
             endcase
