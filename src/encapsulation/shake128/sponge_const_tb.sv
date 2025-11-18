@@ -50,15 +50,35 @@ module sponge_const_tb;
   end
 
   initial begin
+    // -- INPUT -- //
     rst = 1;
     in  = 256'hf8f11229044dfea54ddc214aaa439e7ea06b9b4ede8a3e3f6dfef500c9665598;
     domain = 4'b1111;
     output_len = 14'd1024; // for coins 
+    enable = 0;
 
+    // Release reset to start loading state_reg, done, etc
     #(`DELAY) rst = 0;
-    #(`DELAY) enable = 1;
-    #(`DELAY * 50);
-    $display("\n\nvalid : %b\n state_out = %h\n", valid, state_out);
+
+    // Start SHAKE 
+    // Absorption is wired, so its computed when our inputs are ready
+    // Squeezing is in FSM
+    #10 enable = 1;
+    #10 enable = 0; // 1 pulse
+
+    // wait until done
+    wait(done == 1);
+    #10;
+
+    // if output_len is 1024 = trim the last 1344-1024 bits
+    reg [1023:0] coins;
+    if (output_len == 14'd1024) begin
+      coins = output_string[1023:0];
+      $display("\n\nvalid : %b\n output string = %h\n", done, coins);
+    end
+    else begin
+      $display("\n\nvalid : %b\n output string = %h\n", done, output_string);
+    end
     $finish;
   end
 endmodule
