@@ -50,15 +50,19 @@ module sponge_const_tb;
   end
 
   initial begin
+    // -- INPUT -- //
     rst = 1;
     in  = 256'hf8f11229044dfea54ddc214aaa439e7ea06b9b4ede8a3e3f6dfef500c9665598;
     domain = 4'b1111;
     output_len = 14'd1024; // for coins 
+    enable = 0;
 
+    // Release reset to start loading state_reg, done, etc
     #(`DELAY) rst = 0;
     #(`DELAY) enable = 1;
     #(`DELAY * 50);
     $display("\n\ndone : %b\n output string = %h\n", done, output_string);
+
     $finish;
   end
 endmodule
