@@ -10,7 +10,7 @@ module sponge_const_tb;
   reg [255:0] in; // coins or seeds
   reg [3:0] domain;
   reg [13:0] output_len;
-  wire [5375:0] output_string;
+  wire [5375:0] output_string; 
   wire done;
 
   sponge_const sponge_const_uut (
@@ -43,7 +43,7 @@ module sponge_const_tb;
   initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, sponge_const_tb);
-    //$monitor("time:%t\n state_out: %h\n round: %d\n valid:%b", $time, state_out, shake_uut.round,
+    $monitor("phase:%d\n stage_reg:%h\n bit squeezed:%d\n output len:%d\n output string:%h\n ", sponge_const_uut.phase, sponge_const_uut.state_reg, sponge_const_uut.bits_squeezed, sponge_const_uut.output_len, sponge_const_uut.output_string);
     //        valid);
     clk = 0;
     forever #(`DELAY / 2) clk = ~clk;
@@ -58,7 +58,7 @@ module sponge_const_tb;
     #(`DELAY) rst = 0;
     #(`DELAY) enable = 1;
     #(`DELAY * 50);
-    $display("\n\nvalid : %b\n state_out = %h\n", valid, state_out);
+    $display("\n\ndone : %b\n output string = %h\n", done, output_string);
     $finish;
   end
 endmodule

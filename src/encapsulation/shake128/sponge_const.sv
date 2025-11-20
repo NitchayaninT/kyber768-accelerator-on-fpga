@@ -41,12 +41,13 @@ module sponge_const #(
     // Step 3.1 : Permute once
     // Step 3.2 : Squeeze. If output_len <= bits_squeezed. Stop
         // else, permute again and then squeeze until bits_squeezed = output_len
-    localparam PH_IDLE    = 2'd0;
-    localparam PH_PERMUTE = 2'd1;
-    localparam PH_SQUEEZE = 2'd2;
-    localparam PH_DONE    = 2'd3;
+    localparam PH_IDLE    = 3'd0;
+    localparam PH_PERMUTE = 3'd1;
+    localparam PH_SQUEEZE = 3'd2;
+    localparam PH_ASSIGN = 3'd3;
+    localparam PH_DONE    = 3'd4;
 
-    reg  [1:0]    phase;
+    reg  [2:0]    phase;
     reg  [1599:0] state_reg; // current sponge state S
     reg  [13:0]   bits_squeezed; // how many output bits already written
     reg           perm_enable;
@@ -55,11 +56,11 @@ module sponge_const #(
     wire          perm_valid;
 
     // permutation core: takes state_reg, returns perm_out when perm_valid=1
-    permutation_sim u_perm (
+    permutation u_perm (
         .clk      (clk),
         .enable   (perm_enable),
         .rst      (rst),
-        .state_in (state_reg),
+        .in (state_reg),
         .state_out(perm_out),
         .valid    (perm_valid)
     );
@@ -106,14 +107,17 @@ module sponge_const #(
                     for (i = 0; i < R; i = i + 1) begin
                         if ((bits_squeezed + i) < output_len)
                             output_string[bits_squeezed + i] <= state_reg[i];
-                    end
-
+                    end 
+                    
                     // advance how many bits we've squeezed so far
                     if (output_len - bits_squeezed >= R)
                         bits_squeezed <= bits_squeezed + R; // for seeds (5376 bits)
                     else
                         bits_squeezed <= output_len; // for coins (1024 bits), which is less than R
-
+                     phase <= PH_ASSIGN;
+                  end
+                  
+                PH_ASSIGN: begin
                     // if more bits are needed and we haven't exceeded 4 blocks
                     if (bits_squeezed < output_len && bits_squeezed < 4*R) begin
                         perm_enable <= 1'b1;   // run permutation again on the current state_reg
