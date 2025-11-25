@@ -75,6 +75,7 @@ module sponge_const #(
             output_string <= {5376{1'b0}}; // initialize output str to 000000...
             perm_enable   <= 1'b0; 
             done          <= 1'b0;
+            
         end else begin
             case (phase)
                 // 0. Wait for 'enable' to start
@@ -89,8 +90,8 @@ module sponge_const #(
                         phase         <= PH_PERMUTE;
                     end
                 end
-
                 // 1. Wait for permutation core to finish
+                // problem : it changes phase to PH_SQUEEZE, but doesnt permute
                 PH_PERMUTE: begin
                     perm_enable   <= 1'b1; // enable permutation (step 3.1)
                     if (perm_valid) begin // if finished 24 rounds 
@@ -108,7 +109,7 @@ module sponge_const #(
                         if ((bits_squeezed + i) < output_len)
                             output_string[bits_squeezed + i] <= state_reg[i];
                     end 
-                    
+                // 3. After we've squeezed, keep track of the bits we've squeezed and continue with the next round if output len is more than 1344
                     // advance how many bits we've squeezed so far
                     if (output_len - bits_squeezed >= R)
                         bits_squeezed <= bits_squeezed + R; // for seeds (5376 bits)
@@ -120,14 +121,14 @@ module sponge_const #(
                 PH_ASSIGN: begin
                     // if more bits are needed and we haven't exceeded 4 blocks
                     if (bits_squeezed < output_len && bits_squeezed < 4*R) begin
-                        perm_enable <= 1'b1;   // run permutation again on the current state_reg
+                       // perm_enable <= 1'b0;   // run permutation again on the current state_reg
                         phase       <= PH_PERMUTE;
                     end else begin
                         phase       <= PH_DONE; // we're done
                     end
                 end
 
-                // 3. Done
+                // 4. Done
                 PH_DONE: begin
                     done <= 1'b1;
                     // can read output_string now

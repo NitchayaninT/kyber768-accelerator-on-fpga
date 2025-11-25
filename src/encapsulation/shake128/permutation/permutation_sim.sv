@@ -47,7 +47,7 @@ module permutation (
   );
 
   assign state_out = state_buffer;
-  always @(posedge clk) begin
+  always @(posedge clk or posedge rst) begin
     if (rst) begin
       round <= 5'h00;
       valid <= 0;

@@ -7,7 +7,7 @@ module permutation_tb;
   reg clk;
   reg enable;
   reg rst;
-  reg [255:0] in;
+  reg [1599:0] in;
   wire [1599:0] state_out;
   wire valid;
 
@@ -39,15 +39,14 @@ module permutation_tb;
   initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, permutation_tb);
-    //$monitor("time:%t\n state_out: %h\n round: %d\n valid:%b", $time, state_out, shake_uut.round,
-    //        valid);
+   // $monitor("time:%t\n state_out: %h\n round: %d\n valid:%b", $time, state_out, shake_uut.round,valid);
     clk = 0;
     forever #(`DELAY / 2) clk = ~clk;
   end
 
   initial begin
     rst = 1;
-    in  = 256'hf8f11229044dfea54ddc214aaa439e7ea06b9b4ede8a3e3f6dfef500c9665598;
+    in  = 1600'hda53783742352b58831b00174ccd88e7779a0405cf14e8b61df27a112b2459962267de9879022d8335df49b23ab1bf9cff3b716e2b7ce4cb65ae7a2a6191756f65b55880eddb41052c9b91ea13d70e98150014c7fd2ad9358df4416e4894e9b1d4254ec87d07377333e9cff0afb9aed51c5f90109184a7f46ed9d0a2e48063a20ce98471b8289bf9affef18e0b8909149e33bf132b2a456d8c0a0f6a837059d9543690e584e6ebde0ff523a3b9ad4b80aebe348c6bf79ec031db51b4dc6a2ba53218786e98d39b40;
 
     #(`DELAY) rst = 0;
     #(`DELAY) enable = 1;
