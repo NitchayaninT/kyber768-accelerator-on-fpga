@@ -1,7 +1,7 @@
 // Code your testbench here
 // or browse Examples
 `timescale 1ns / 1ps
-`define DELAY 10
+`define DELAY 5
 module sponge_const_tb;
 
   reg clk;
@@ -43,8 +43,10 @@ module sponge_const_tb;
   initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, sponge_const_tb);
-    $monitor("phase:%d\n stage_reg:%h\n bit squeezed:%d\n output len:%d\n output string:%h\n ", sponge_const_uut.phase, sponge_const_uut.state_reg, sponge_const_uut.bits_squeezed, sponge_const_uut.output_len, sponge_const_uut.output_string);
-    //        valid);
+    $monitor("phase:%d\n perm_valid:%h\n perm_enable:%h\n stage_reg:%h\n bit squeezed:%d\n output len:%d\n output string:%h\n ", sponge_const_uut.phase, sponge_const_uut.perm_valid, sponge_const_uut.perm_enable, sponge_const_uut.state_reg, sponge_const_uut.bits_squeezed, sponge_const_uut.output_len, sponge_const_uut.output_string);
+    //$display("time  phase  en  round  valid  bits_squeezed");
+    //$monitor("%4t  %0d    %b   %2d    %b     %0d",
+           ///$time, sponge_const_uut.phase, sponge_const_uut.perm_enable, sponge_const_uut.u_perm.round, sponge_const_uut.perm_valid, sponge_const_uut.bits_squeezed);
     clk = 0;
     forever #(`DELAY / 2) clk = ~clk;
   end
@@ -61,7 +63,10 @@ module sponge_const_tb;
     // Release reset to start loading state_reg, done, etc
     #(`DELAY) rst = 0;
     #(`DELAY) enable = 1;
-    #(`DELAY * 50);
+    
+    @(posedge done);
+    #(`DELAY * 5);
+    
     $display("\n\ndone : %b\n output string = %h\n", done, output_string);
 
     $finish;

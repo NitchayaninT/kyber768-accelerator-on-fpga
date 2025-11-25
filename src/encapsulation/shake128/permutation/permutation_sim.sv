@@ -52,17 +52,25 @@ module permutation (
       round <= 5'h00;
       valid <= 0;
       state_buffer <= 1600'h0;  // ← Initialize to avoid X's
-    end else if (enable && !valid) begin
+    end else if (!enable) begin
+      round <= 5'h00;
+      valid <= 1'b0;
+      state_buffer <= 1600'h0;
+    end else begin
+      // permutation active
       if (round == 5'h00) begin
         state_buffer <= {in};  // Load input
         round <= round + 1;
+        valid <= 1'b0;
       end else if (round <= 24) begin  // ← Rounds 1-24 (24 Keccak rounds)
         state_buffer <= iota_out;
         round <= round + 1;
         if (round == 24) begin  // ← After 24th round completes
           valid <= 1;
         end
-      end
+        end else begin
+          valid <= 1'b1; // hold output and keep valid high
+        end
     end
   end
 endmodule
