@@ -11,9 +11,27 @@ module sponge_const #(
     output reg [5375:0] output_string, // max 4*R bits
     output reg          done // done flag
 );
+
+    // Reorder bytes so that it absorbs left most byte as first byte like in python
+    wire [255:0] msg_bits;
+    genvar b;
+    generate
+        for (b = 0; b < 32; b = b + 1) begin : REORDER
+            // in python: first input byte is leftmost byte (in[255:248])
+            // in verilog : right most byte gets absorbed first
+            // Map that to msg_bits[7:0] so in verilog, the leftmost byte will get absorbed first like in python
+            assign msg_bits[b*8 +: 8] = in[255-8*b -:8];
+            // takes 8 bits starting atindex b*8 going up by 8
+            // X[a -: 8] = X[a : a-7]
+            // X[a +: 8] = X[a : a+7]
+        end
+    endgenerate
+    
     // Step 0: added domain seperator
     wire [259:0] in_updated;
-    assign in_updated = {domain, in}; // 260 bits
+    assign in_updated[255:0]   = msg_bits;
+    assign in_updated[259:256] = domain; 
+    // assign in_updated = {domain, in}; // 260 bits
 
     wire [R-1:0] rate_block;
     assign rate_block = {{(R-260){1'b0}}, in_updated}; // message in LSBs of rate
