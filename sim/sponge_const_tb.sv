@@ -57,8 +57,8 @@ endtask
     rst = 1;
     in  = 256'hf8f11229044dfea54ddc214aaa439e7ea06b9b4ede8a3e3f6dfef500c9665598;
     domain = 4'b1111;
-    // output_len = 14'd1024; // for coins 
-    output_len = 14'd5376; // for seed (Public matrix)
+    output_len = 14'd1024; // for coins 
+    // output_len = 14'd5376; // for seed (Public matrix)
     enable = 0;
 
     // Release reset to start loading state_reg, done, etc
