@@ -3,5 +3,7 @@
     "files.associations": {
         "keccakp-1600-snp.h": "c",
         "string": "c"
-    }
+    },
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.pythonProjects": []
 }
