@@ -1,5 +1,5 @@
 `timescale 1ns / 1ps
-module sponge_const #(
+module shake128 #(
     parameter integer R = 1344 // rate in SHAKE128
 )(
     input               clk,
@@ -46,7 +46,7 @@ module sponge_const #(
     );
 
     // apply pad mask to get padded block
-    wire [R-1:0] padded_block = padded_mask ^ rate_block;
+    wire [R-1:0] padded_block = padded_mask | rate_block;
 
     // calculate capacity bits 
     localparam integer C = 1600 - R;
