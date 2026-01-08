@@ -2,7 +2,7 @@
 // or browse Examples
 `timescale 1ns / 1ps
 `define DELAY 5
-module sponge_const_tb;
+module shake128_tb;
 
   reg clk;
   reg enable;
@@ -13,7 +13,7 @@ module sponge_const_tb;
   wire [5375:0] output_string; 
   wire done;
 
-  sponge_const sponge_const_uut (
+  shake128 shake128_uut (
       .clk(clk),
       .enable(enable),
       .rst(rst),
@@ -43,8 +43,8 @@ endtask
 
   initial begin
     $dumpfile("dump.vcd");
-    $dumpvars(0, sponge_const_tb);
-    $monitor("phase:%d\n perm_valid:%h\n perm_enable:%h\n stage_reg:%h\n bit squeezed:%d\n output len:%d\n output string:%h\n ", sponge_const_uut.phase, sponge_const_uut.perm_valid, sponge_const_uut.perm_enable, sponge_const_uut.state_reg, sponge_const_uut.bits_squeezed, sponge_const_uut.output_len, sponge_const_uut.output_string);
+    $dumpvars(0, shake128_tb);
+    $monitor("phase:%d\n perm_valid:%h\n perm_enable:%h\n stage_reg:%h\n bit squeezed:%d\n output len:%d\n output string:%h\n ", shake128_uut.phase, shake128_uut.perm_valid, shake128_uut.perm_enable, shake128_uut.state_reg, shake128_uut.bits_squeezed, shake128_uut.output_len, shake128_uut.output_string);
     //$display("time  phase  en  round  valid  bits_squeezed");
     //$monitor("%4t  %0d    %b   %2d    %b     %0d",
            ///$time, sponge_const_uut.phase, sponge_const_uut.perm_enable, sponge_const_uut.u_perm.round, sponge_const_uut.perm_valid, sponge_const_uut.bits_squeezed);
