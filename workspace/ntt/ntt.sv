@@ -1,5 +1,5 @@
-// this is first ntt implementation without mondgomoery
-`define ntt_omega 17
+`include "fqmul.sv"
+`define NTT_OMEGA 17
 module ntt (
     input enable,
     input clk,
@@ -47,7 +47,8 @@ reg signed [11:0] zetas[0:127] = '{
   wire signed [11:0] mux_out_zeta[0:127];
   wire [15:0] cooley_out0[0:127];
   wire [15:0] cooley_out1[0:127];
-
+  
+  reg [2:0] stage;
   reg [15:0] buf_in[0:255];
   wire [15:0] a[0:6][0:127];
   wire [15:0] b[0:6][0:127];
@@ -186,16 +187,23 @@ endmodule
 
 
 module cooley_tookey (
-    input [15:0] a,
-    input [15:0] b,
-    input signed [11:0] zeta,
-    output [15:0] out0,
-    output [15:0] out1
+    input  signed [15:0] a,
+    input  signed [15:0] b,
+    input  signed [11:0] zeta,
+    output signed [15:0] out0,
+    output signed [15:0] out1
 );
+  wire signed [15:0] t;
+  wire signed [15:0] zeta_ext;
 
-  localparam mod = 16'd3329;
-  wire [15:0] t;
-  assign t = zeta * b % mod;
-  assign out0 = (a + t) % mod;
-  assign out1 = (a - t + mod) % mod;
+  assign zeta_ext = zeta;
+
+  fqmul mul (
+    .a(zeta_ext),
+    .b(b),
+    .r(t)
+  );
+
+  assign out0 = a + t;
+  assign out1 = a - t;
 endmodule

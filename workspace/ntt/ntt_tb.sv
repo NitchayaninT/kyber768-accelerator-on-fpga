@@ -23,6 +23,5 @@ module ntt_tb;
     $readmemb("test_vect.bin", in);
     #10 enable = 1;
     wait(valid);
-    for (int i = 0; i < 256; i++) $display("in[%0d] = %0d", i, in[i]);
   end
 endmodule
