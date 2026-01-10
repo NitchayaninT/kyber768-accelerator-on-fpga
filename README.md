@@ -12,14 +12,17 @@ Instead, it is used to establish a shared secret, which can then be used with fa
 
 ## Operations
 - Key Generation (Simulated)
+
     One party generates:
     - a public key 
     - a secret key (kept private)
 - Encapculation 
+
     The other party uses the public key to:
     - generate a random shared secret
     - encrypt (encapsulate) it into a ciphertext
 - Decapsulation
+
     The first party uses its secret key to:
     - recover the same "shared secret" from the ciphertext
 
