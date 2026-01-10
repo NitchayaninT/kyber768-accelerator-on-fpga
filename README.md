@@ -48,7 +48,7 @@ Instead, it is used to establish a shared secret, which can then be used with fa
 - Subtraction
 - Reduce
 
-## Decapsulation
+### Decapsulation
 - Pre/Post Indcpa Decryption
 - Decode Decompress Ct
 - Decode Decompress sk
