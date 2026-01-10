@@ -21,7 +21,7 @@ module shake128 #(
             // in verilog : right most byte gets absorbed first
             // Map that to msg_bits[7:0] so in verilog, the leftmost byte will get absorbed first like in python
             assign msg_bits[b*8 +: 8] = in[255-8*b -:8];
-            // takes 8 bits starting atindex b*8 going up by 8
+            // takes 8 bits starting at index b*8 going up by 8
             // X[a -: 8] = X[a : a-7]
             // X[a +: 8] = X[a : a+7]
         end
