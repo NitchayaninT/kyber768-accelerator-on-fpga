@@ -1,11 +1,14 @@
 module fqmul (
+  input clk,
   input signed [15:0] a,
   input signed [15:0] b,
   output signed [15:0] r
 );
 
-  wire signed [31:0] mul;
-  assign mul = a * b;
+  reg signed [31:0] mul;
+  always @(posedge clk) begin
+    mul <= a * b;
+  end
   montgomery_reduce red(.a(mul), .r(r));
 endmodule
 
@@ -13,8 +16,8 @@ module montgomery_reduce (
     input  signed [31:0] a,
     output signed [15:0] r
 );
-    localparam signed [15:0] Q    = 16'sd3329;
-    localparam signed [15:0] QINV = 16'sd62209; // -q^{-1} mod 2^16
+    localparam [15:0] Q    = 16'd3329;
+    localparam [15:0] QINV = 16'd62209; // -q^{-1} mod 2^16
 
     wire signed [31:0] t;
     wire signed [15:0] u;

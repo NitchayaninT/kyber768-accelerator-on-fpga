@@ -2,7 +2,6 @@
 // rho -> hash sampling and rejection modules
 // Transpose mean nothing in digital logic it is the same storage but connect
 // to different place
-`timescale 1ns / 1ps
 `include "params.vh"
 // This module is combinational circuit
 module decode_pk (

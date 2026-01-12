@@ -1,36 +1,29 @@
-`include "fqmul.sv"
-`define NTT_OMEGA 17
 module ntt (
     input enable,
+    input reset,
     input clk,
-    input [15:0] in[0:255],
-    output reg [15:0] out[0:255],
+    input signed [15:0] in [256],
+    output reg [15:0] out[256],
     output reg valid
 );
 
-reg signed [11:0] zetas[0:127] = '{
+  reg signed [15:0] zetas[128] = '{
     // stage 0 (1 group, stride=128)
     -1044,
-
     // stage 1 (2 groups, stride=64)
     -758, -359,
-
     // stage 2 (4 groups, stride=32)
     -1517, 1493, 1422, 287,
-
     // stage 3 (8 groups, stride=16)
     202, -171, 622, 1577, 182, 962, -1202, -1474,
-
     // stage 4 (16 groups, stride=8)
     1468, 573, -1325, 264, 383, -829, 1458, -1602,
     -130, -681, 1017, 732, 608, -1542, 411, -205,
-
     // stage 5 (32 groups, stride=4)
     -1571, 1223, 652, -552, 1015, -1293, 1491, -282,
     -1544, 516, -8, -320, -666, -1618, -1162, 126,
     1469, -853, -90, -271, 830, 107, -1421, -247,
     -951, -398, 961, -1508, -725, 448, -1065, 677,
-
     // stage 6 (64 groups, stride=2)
     -1275, -1103, 430, 555, 843, -1251, 871, 1550,
     105, 422, 587, 177, -235, -291, -460, 1574,
@@ -40,166 +33,228 @@ reg signed [11:0] zetas[0:127] = '{
     384, -1215, -136, 1218, -1335, -874, 220, -1187,
     -1659, -1185, -1530, -1278, 794, -1510, -854, -870,
     478, -108, -308, 996, 991, 958, -1460, 1522, 1628
-};
+  };
 
-  wire [15:0] mux_out_a[0:127];
-  wire [15:0] mux_out_b[0:127];
-  wire signed [11:0] mux_out_zeta[0:127];
-  wire [15:0] cooley_out0[0:127];
-  wire [15:0] cooley_out1[0:127];
-  
-  reg [2:0] stage;
-  reg [15:0] buf_in[0:255];
-  wire [15:0] a[0:6][0:127];
-  wire [15:0] b[0:6][0:127];
-  // generate a,b for muxes
-  genvar s, start, j;
+  wire signed [15:0] out0[8], out1[8];
+  reg signed [15:0] a[8], b[8], zeta[8];
+  genvar i;
   generate
-    for (s = 0; s < 7; s = s + 1) begin : g_stride
-      for (start = 0; start < 256; start = start + 2 * (128 >> s)) begin : outer
-        for (j = start; j < start + (128 >> s); j = j + 1) begin : inner
-          localparam int idx = (start / (2 * (128 >> s))) * (128 >> s) + (j - start);
-          assign a[s][idx] = buf_in[j];
-          assign b[s][idx] = buf_in[j+(128>>s)];
+    for (i = 0; i < 8; i = i + 1) begin : g_cooley
+      cooley_tookey clt(
+        .a(a[i]),
+        .b(b[i]),
+        .zeta(zeta[i]),
+        .out0(out0[i]),
+        .out1(out1[i])
+      );
+    end
+  endgenerate
+
+  reg signed [15:0] buf_in[256];
+  reg signed [15:0] buf_out[256];
+
+  reg [7:0] stage; // outer loop
+
+  reg [3:0] cooley_tookey_set;
+  reg [7:0] start, len, k, j;
+  reg read; // for read write loop in compute
+
+  reg [2:0] step; // track which step we are currently doing
+  localparam load = 0, compute = 1, next_blk = 2, next_stage = 3, done = 4;
+
+  integer i;
+  always @(posedge clk) begin
+    if (enable) begin
+      if (step == load) begin
+        stage <= 0;
+        cooley_tookey_set <= 0;
+        start <= 0;
+        k <= 1;
+        len <= 128;
+        buf_in <= in;
+        read <= 0;
+        step <= compute;
+      end
+
+      // save the result from out buffer back to the output
+      // raise valid flag
+      if (step == done ) begin
+        valid <= 1;
+        for ( i = 0; i < 255; i = i+1)begin
+          out[i] <= buf_out[i];
+        end
+      end
+
+      // when finished each stage reset the variable
+      else if (step == next_stage) begin
+          cooley_tookey_set <= 0; // each stage use 16 cooley_tookey_set
+          len <= len >> 1;
+          start <= 0;
+          j <= 0;
+          if (stage == 6) begin
+            step <= done;
+          end
+          else begin
+            stage <= stage + 1;
+          end
+      end
+
+      // when finish each block update k, start, j
+      else if(step == next_blk) begin
+        if (stage < 5) begin
+          k <= k+1;
+          if ( j+len < 256) begin
+            start <= j + len;
+            j <= j + len; // c-ref : j = start
+          end
+          else begin
+            step <= next_stage;
+          end
+        end
+        else if (stage == 5) begin
+          k <= k+2;
+          if ( j+ (2*len) < 256) begin
+            start <= j + (2*len);
+            j <= j + (2*len); // c-ref : j = start
+          end
+          else begin
+            step <= next_stage;
+          end
+        end
+        else if (stage == 6) begin
+          k <= k+4;
+          if ( j+(4*len)< 256) begin
+            start <= j + (4*len);
+            j <= j + (4*len); // c-ref : j = start
+          end
+          else begin
+            step <= next_stage;
+          end
+        end
+      end
+    end // end for enable
+  end // end always block
+
+  always @(posedge clk)
+    if (enable && step==compute) begin
+    read <= ~ read;
+    // use this formular for the round that len < 8
+    // stage 0 : len = 128;
+    // stage 1 : len = 64
+    // stage 2 : len = 32
+    // stage 3 : len = 16
+    // stage 4 : len = 8
+    if(stage < 5) begin
+      if (!read) begin
+        for (i = 0; i < 8; i = i+1) begin
+          a[i] <= buf_in[j+i];
+          b[i] <= buf_in[j+i+len];
+          zeta[i] <= zetas[k];
+        end
+      end
+      else if(read) begin
+        for ( i = 0; i < 8; i = i+1) begin
+          buf_out[j+i] <= out0[i];
+          buf_out[j+i+len] <= out1[i];
+        end
+        if(j >= start + len) begin
+          step <= next_blk;
+        end
+        else begin
+          j <= j+8;
+          cooley_tookey_set <= cooley_tookey_set + 1;
         end
       end
     end
-  endgenerate
 
-  // add them to muxes
-  genvar i;
-  generate
-    for (i = 0; i < 128; i = i + 1) begin
-      ntt_mux7 mux_a (
-          .in0(a[0][i]),
-          .in1(a[1][i]),
-          .in2(a[2][i]),
-          .in3(a[3][i]),
-          .in4(a[4][i]),
-          .in5(a[5][i]),
-          .in6(a[6][i]),
-          .out(mux_out_a[i]),
-          .sel(stage)
-      );
-      ntt_mux7 muxb (
-          .in0(b[0][i]),
-          .in1(b[1][i]),
-          .in2(b[2][i]),
-          .in3(b[3][i]),
-          .in4(b[4][i]),
-          .in5(b[5][i]),
-          .in6(b[6][i]),
-          .out(mux_out_b[i]),
-          .sel(stage)
-      );
-    end
-  endgenerate
-
-
-  wire signed [11:0] z[0:6][0:127];  // zetas arranged per stage
-  // arrange zetas for each stage
-  generate
-    for (i = 0; i < 128; i++) begin
-      assign z[0][i] = zetas[0];  // all use zeta[0]
-      assign z[1][i] = zetas[1+(i/64)];  // 2 zetas, each 64x
-      assign z[2][i] = zetas[3+(i/32)];  // 4 zetas, each 32x
-      assign z[3][i] = zetas[7+(i/16)];  // 8 zetas, each 16x
-      assign z[4][i] = zetas[15+(i/8)];  // 16 zetas, each 8x
-      assign z[5][i] = zetas[31+(i/4)];  // 32 zetas, each 4x
-      assign z[6][i] = zetas[63+(i/2)];  // 64 zetas, each 2x
-    end
-  endgenerate
-
-  // then mux them
-  generate
-    for (i = 0; i < 128; i++) begin
-      ntt_mux7 mux_z (
-          .in0(z[0][i]),
-          .in1(z[1][i]),
-          .in2(z[2][i]),
-          .in3(z[3][i]),
-          .in4(z[4][i]),
-          .in5(z[5][i]),
-          .in6(z[6][i]),
-          .out(mux_out_zeta[i]),
-          .sel(stage)
-      );
-    end
-  endgenerate
-  generate
-    for (i = 0; i < 128; i++) begin : g_cooley
-      cooley_tookey clt (
-          .a(mux_out_a[i]),
-          .b(mux_out_b[i]),
-          .zeta(mux_out_zeta[i]),
-          .out0(cooley_out0[i]),
-          .out1(cooley_out1[i])
-      );
-    end
-  endgenerate
-
-  // only for simluation
-  initial begin
-      stage       = 0;
-      busy        = 0;
-      write_phase = 0;
-      valid       = 0;
-  end
-
-  // main ntt behavior
-  reg busy;
-  integer k;
-  reg write_phase;
-  always @(posedge clk) begin
-    if (enable && !busy) begin
-      for (k = 0; k < 256; k = k + 1)
-          buf_in[k] <= in[k];
-      stage <= 0;
-      valid <= 0;
-      write_phase <= 0;
-      busy <= 1;
-    end else if (busy && !write_phase) begin
-      // Phase 0: Let combinational logic settle
-      write_phase <= 1;
-    end else if (busy && write_phase) begin
-      // Phase 1: Write results
-      for (k = 0; k < 128; k = k + 1) begin
-        buf_in[((k/(128>>stage))*2*(128>>stage))+(k%(128>>stage))] <= cooley_out0[k];
-        buf_in[((k/(128>>stage))*2*(128>>stage))+(k%(128>>stage))+(128>>stage)] <= cooley_out1[k];
+    // stage 5 : len = 4;
+    if (stage == 5) begin
+      if (!read) begin
+        for ( i = 0; i < 4; i++) begin
+          a[i] <= buf_in[j+i];
+          b[i] <= buf_in[j+i+len];
+          zeta[i] <= zetas[k];
+        end
+        for ( i = 4; i < 8; i++)  begin
+          // +len since this is another block
+          a[i] <= buf_in[j+i+len];
+          b[i] <= buf_in[j+i+len+len];
+          zeta[i] <= zetas[k+1];
+        end
       end
-
-      write_phase <= 0;
-
-      if (stage == 6) begin
-        busy  <= 0;
-        for (k = 0; k < 256; k = k + 1)
-            out[k] <= buf_in[k];
-        valid <= 1;
-      end else begin
-        stage <= stage + 1;
+      else if(read) begin
+        for ( i = 0; i < 4; i++) begin
+          buf_out[j+i] <= out0[i];
+          buf_out[j+i+len] <= out1[i];
+        end
+        for ( i = 4; i < 8; i++) begin
+          buf_out[j+i+len] <= out0[i];
+          buf_out[j+i+len+len] <= out1[i];
+        end
+        step = next_blk;
       end
-    end else begin
-      valid <= 0;
+    end
+    // stage 6 : len = 2; **last stage**
+    if (stage == 6) begin
+      if (!read) begin
+        for ( i = 0; i < 2; i = i+1) begin
+          a[i] <= buf_in[j+i];
+          b[i] <= buf_in[j+i+len];
+          zeta[i] <= zetas[k];
+        end
+        for ( i = 2; i < 4; i = i+1) begin
+          // +len since this is another block
+          a[i] <= buf_in[j+i+len];
+          b[i] <= buf_in[j+i+len+len];
+          zeta[i] <= zetas[k+1];
+        end
+        for ( i = 4; i < 6; i = i+1) begin
+          // +len since this is another block
+          a[i] <= buf_in[j+i+(2*len)];
+          b[i] <= buf_in[j+i+(3*len)];
+          zeta[i] <= zetas[k+2];
+        end
+        for ( i = 6; i < 8; i = i+1) begin
+          // +len since this is another block
+          a[i] <= buf_in[j+i+(3*len)];
+          b[i] <= buf_in[j+i+(4*len)];
+          zeta[i] <= zetas[k+3];
+        end
+      end
+      else if(read) begin
+        for ( i = 0; i < 2; i++) begin
+          buf_out[j+i] <= out0[i];
+          buf_out[j+i+len] <= out1[i];
+        end
+        for ( i = 2; i < 4; i++) begin
+          buf_out[j+i+len] <= out0[i];
+          buf_out[j+i+(2*len)] <= out1[i];
+        end
+        for ( i = 4; i < 6; i++) begin
+          buf_out[j+i+(2*len)] <= out0[i];
+          buf_out[j+i+(3*len)] <= out1[i];
+        end
+        for ( i = 6; i < 8; i++) begin
+          buf_out[j+i+(3*len)] <= out0[i];
+          buf_out[j+i+(4*len)] <= out1[i];
+        end
+        step = next_blk;
+      end
     end
   end
 endmodule
 
-
-
 module cooley_tookey (
     input  signed [15:0] a,
     input  signed [15:0] b,
-    input  signed [11:0] zeta,
+    input  signed [15:0] zeta,
     output signed [15:0] out0,
     output signed [15:0] out1
 );
   wire signed [15:0] t;
-  wire signed [15:0] zeta_ext;
-
-  assign zeta_ext = zeta;
 
   fqmul mul (
-    .a(zeta_ext),
+    .a(zeta),
     .b(b),
     .r(t)
   );
