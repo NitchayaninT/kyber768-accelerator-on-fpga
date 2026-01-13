@@ -7,7 +7,7 @@ module fqmul (
 
   reg signed [31:0] mul;
   always @(posedge clk) begin
-    mul <= a * b;
+    mul <= a * b; // 1clk
   end
   montgomery_reduce red(.a(mul), .r(r));
 endmodule
@@ -23,8 +23,8 @@ module montgomery_reduce (
     wire signed [15:0] u;
     wire signed [31:0] a_sub_t;
 
-    assign u = (a * QINV) & 16'hFFFF;
-    assign t = u * Q;
+    assign u = (a * QINV) & 16'hFFFF;// 1clk;
+    assign t = u * Q; // 1clk
     assign a_sub_t = a - t;
     assign r = a_sub_t >>> 16;          // arithmetic shift
 endmodule
