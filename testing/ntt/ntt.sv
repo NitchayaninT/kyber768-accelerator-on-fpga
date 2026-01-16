@@ -3,10 +3,10 @@ module ntt (
     input reset,
     input clk,
     input signed [15:0] in[256],
-    output  reg signed[(16*256)-1:0] out,
+    output reg signed [15:0] out [256],
     output reg valid
 );
-
+  /*
   reg signed [15:0] zetas[128] = '{
     // stage 0 (1 group, stride=128)
     -1044,
@@ -34,14 +34,30 @@ module ntt (
     -1659, -1185, -1530, -1278, 794, -1510, -854, -870,
     478, -108, -308, 996, 991, 958, -1460, 1522, 1628
   };
+  */
 
+  reg signed [15:0] zetas[128] = {
+  2285, 2571, 2970, 1812, 1493, 1422, 287, 202, 3158, 622, 1577, 182, 962,
+  2127, 1855, 1468, 573, 2004, 264, 383, 2500, 1458, 1727, 3199, 2648, 1017,
+  732, 608, 1787, 411, 3124, 1758, 1223, 652, 2777, 1015, 2036, 1491, 3047,
+  1785, 516, 3321, 3009, 2663, 1711, 2167, 126, 1469, 2476, 3239, 3058, 830,
+  107, 1908, 3082, 2378, 2931, 961, 1821, 2604, 448, 2264, 677, 2054, 2226,
+  430, 555, 843, 2078, 871, 1550, 105, 422, 587, 177, 3094, 3038, 2869, 1574,
+  1653, 3083, 778, 1159, 3182, 2552, 1483, 2727, 1119, 1739, 644, 2457, 349,
+  418, 329, 3173, 3254, 817, 1097, 603, 610, 1322, 2044, 1864, 384, 2114, 3193,
+  1218, 1994, 2455, 220, 2142, 1670, 2144, 1799, 2051, 794, 1819, 2475, 2459,
+  478, 3221, 3021, 996, 991, 958, 1869, 1522, 1628
+};
   wire signed [15:0] out0[8], out1[8];
-  reg signed [15:0] a[8], b[8], zeta[8];
+  reg signed [15:0] a[8], b[8];
+  reg signed [15:0] zeta[8];
+  reg fqmul_start;
   genvar index;
   generate
     for (index = 0; index < 8; index++) begin : g_cooley
       cooley_tookey clt (
           .clk(clk),
+          .start(fqmul_start),
           //input
           .a(a[index]),
           .b(b[index]),
@@ -57,10 +73,13 @@ module ntt (
   reg signed [(16 * 256)-1:0] buf_out;
 
   reg [2:0] stage;  // outer loop
+  reg [2:0] compute_count;
 
-  reg [3:0] cooley_tookey_set;
+  reg [4:0] cooley_tookey_set;
   reg [7:0] start, len, k, j;
-  reg read;  // for read write loop in compute
+  wire signed [15:0] test_zeta[4];
+  for (index = 0; index <4; index++)
+    assign test_zeta[index] = zetas[k+index];
 
   reg [2:0] step;  // track which step we are currently doing
   localparam load = 0, compute = 1, next_blk = 2, sync_in_out = 3, next_stage = 4, done = 5, idle = 6;
@@ -68,6 +87,7 @@ module ntt (
   integer i;
   always @(posedge clk) begin
     if (reset) begin
+      valid <= 0;
       buf_in <= 0;
       buf_out <= 0;
       step <= load;
@@ -77,23 +97,29 @@ module ntt (
       j <= 0;
       k <= 1;
       len <= 128;
-      read <= 0;
     end else if (enable) begin
       if (step == load) begin
         for (i = 0; i < 256; i++) begin
           buf_in[(i*16)+:16] <= in[i];
         end
         step <= compute;
-      end  // save the result from out buffer back to the output
-           // raise valid flag
+        compute_count <= 0;
+      end
+
+      // save the result from out buffer back to the output
+     // raise valid flag
       else if (step == done) begin
-        out   <= buf_out;
+        for(i = 0; i < 256; i++) begin
+          out[i] <= buf_out[i*16+:16];
+        end
         valid <= 1;
         step  <= idle;
       end else if (step == sync_in_out) begin
         buf_in <= buf_out;
         step   <= next_stage;
-      end  // when finished each stage reset the variable
+      end
+
+      // when finished each stage reset the variable
       else if (step == next_stage) begin
         cooley_tookey_set <= 0;  // each stage use 16 cooley_tookey_set
         len <= len >> 1;
@@ -109,79 +135,124 @@ module ntt (
       else if (step == next_blk) begin
         if (stage < 5) begin
           k <= k + 1;
-          if (cooley_tookey_set < 15) begin
-            start <= j + len;
-            j <= j + len;  // c-ref : j = start
+          if (cooley_tookey_set < 16) begin // here is bug
+            start <= j + 8 + len;
+            j <= j + 8 + len;
             //input
             step <= compute;
+            compute_count <= 0;
           end else begin
             step <= sync_in_out;
           end
         end else if (stage == 5) begin
           k <= k + 2;
-          if (cooley_tookey_set < 15) begin
-            start <= j + (2 * len);
-            j <= j + (2 * len);  // c-ref : j = start
+          if (cooley_tookey_set < 16) begin
+            start <= j + 8 + (2 * len);
+            j <= j + 8 + (2 * len);  // c-ref : j = start
             step <= compute;
+            compute_count <= 0;
           end else begin
             step <= sync_in_out;
           end
         end else if (stage == 6) begin
           k <= k + 4;
-          if (cooley_tookey_set < 15) begin
-            start <= j + (4 * len);
-            j <= j + (4 * len);  // c-ref : j = start
+          if (cooley_tookey_set < 16) begin
+            start <= j + 8 + (4 * len);
+            j <= j + 8 + (4 * len);  // c-ref : j = start
             step <= compute;
+            compute_count <= 0;
           end else begin
             step <= sync_in_out;
           end
         end
       end //end next_blk
+
       else if (step == compute) begin
-        // use this formular for the round that len < 8
-        // stage 0 : len = 128;
-        // stage 1 : len = 64
-        // stage 2 : len = 32
-        // stage 3 : len = 16
-        // stage 4 : len = 8
-        if (stage < 5) begin
-          if (!read) begin
+        // compute_count = 0 : load value (a,b,zeta), set fqmul_start = 1
+        if (compute_count == 0) begin
+          fqmul_start   <= 1;
+          compute_count <= compute_count + 1;
+          // use this formular for the round that len < 8
+          // stage 0 : len = 128;
+          // stage 1 : len = 64
+          // stage 2 : len = 32
+          // stage 3 : len = 16
+          // stage 4 : len = 8
+          if (stage < 5) begin
             for (i = 0; i < 8; i = i + 1) begin
               a[i] <= buf_in[(j+i)*16+:16];
               b[i] <= buf_in[(j+i+len)*16+:16];
-              zeta[i] <= zetas[k];
+              zeta[i] <= test_zeta[0];
             end
-            read <= 1;
-          end else if (read) begin
-            for (i = 0; i < 8; i = i + 1) begin
-              buf_out[(j+i)*16+:16] <= out0[i];
-              buf_out[(j+i+len)*16+:16] <= out1[i];
-            end
-            if (j + 8 >= start + len) begin
-              step <= next_blk;
-            end else begin
-              j <= j + 8;
-              cooley_tookey_set <= cooley_tookey_set + 1;
-            end
-            read <= 0;
-          end
-        end
-
-        // stage 5 : len = 4;
-        if (stage == 5) begin
-          if (!read) begin
+          end else if (stage == 5) begin
             for (i = 0; i < 4; i++) begin
               a[i] <= buf_in[(j+i)*16+:16];
               b[i] <= buf_in[(j+i+len)*16+:16];
-              zeta[i] <= zetas[k];
+              zeta[i] <= test_zeta[0];
             end
             for (i = 4; i < 8; i++) begin
               // +len since this is another block
               a[i] <= buf_in[(j+i+len)*16+:16];
               b[i] <= buf_in[(j+i+len+len)*16+:16];
-              zeta[i] <= zetas[k+1];
+              zeta[i] <= test_zeta[1];
             end
-          end else if (read) begin
+          end  // stage 6 : len = 2; **last stage**
+          else if (stage == 6) begin
+            for (i = 0; i < 2; i = i + 1) begin
+              a[i] <= buf_in[(j+i)*16+:16];
+              b[i] <= buf_in[(j+i+len)*16+:16];
+              zeta[i] <= test_zeta[0];
+            end
+            for (i = 2; i < 4; i = i + 1) begin
+              // +len since this is another block
+              a[i] <= buf_in[(j+i+len)*16+:16];
+              b[i] <= buf_in[(j+i+len+len)*16+:16];
+              zeta[i] <= test_zeta[1];
+            end
+            for (i = 4; i < 6; i = i + 1) begin
+              // +len since this is another block
+              a[i] <= buf_in[(j+i+(2*len))*16+:16];
+              b[i] <= buf_in[(j+i+(3*len))*16+:16];
+              zeta[i] <= test_zeta[2];
+            end
+            for (i = 6; i < 8; i = i + 1) begin
+              // +len since this is another block
+              a[i] <= buf_in[(j+i+(3*len))*16+:16];
+              b[i] <= buf_in[(j+i+(4*len))*16+:16];
+              zeta[i] <= test_zeta[3];
+            end
+          end
+        end
+        // compute_count 1,2,3,4 use for cooley_tookes's fqmul to compute
+        // using 4 clk cycle
+        else if (compute_count < 5) begin
+          compute_count <= compute_count + 1;
+          fqmul_start   <= 0;
+        end
+        // compute_count = 5 : loading value to buf_out
+        else if (compute_count == 5) begin
+          compute_count <= 0;
+          // use this formular for the round that len < 8
+          // stage 0 : len = 128;
+          // stage 1 : len = 64
+          // stage 2 : len = 32
+          // stage 3 : len = 16
+          // stage 4 : len = 8
+          if (stage < 5) begin
+            for (i = 0; i < 8; i = i + 1) begin
+              buf_out[(j+i)*16+:16] <= out0[i];
+              buf_out[(j+i+len)*16+:16] <= out1[i];
+            end
+            cooley_tookey_set <= cooley_tookey_set + 1;
+            if (j + 8 >= start + len) begin
+              step <= next_blk;
+            end else begin
+              j <= j + 8;
+            end
+          end
+
+          // stage 5 : len = 4;
+          else if (stage == 5) begin
             for (i = 0; i < 4; i++) begin
               buf_out[(j+i)*16+:16] <= out0[i];
               buf_out[(j+i+len)*16+:16] <= out1[i];
@@ -191,35 +262,11 @@ module ntt (
               buf_out[(j+i+len+len)*16+:16] <= out1[i];
             end
             step <= next_blk;
+            cooley_tookey_set <= cooley_tookey_set + 1;
           end
-        end
-        // stage 6 : len = 2; **last stage**
-        if (stage == 6) begin
-          if (!read) begin
-            for (i = 0; i < 2; i = i + 1) begin
-              a[i] <= buf_in[(j+i)*16+:16];
-              b[i] <= buf_in[(j+i+len)*16+:16];
-              zeta[i] <= zetas[k];
-            end
-            for (i = 2; i < 4; i = i + 1) begin
-              // +len since this is another block
-              a[i] <= buf_in[(j+i+len)*16+:16];
-              b[i] <= buf_in[(j+i+len+len)*16+:16];
-              zeta[i] <= zetas[k+1];
-            end
-            for (i = 4; i < 6; i = i + 1) begin
-              // +len since this is another block
-              a[i] <= buf_in[(j+i+(2*len))*16+:16];
-              b[i] <= buf_in[(j+i+(3*len))*16+:16];
-              zeta[i] <= zetas[k+2];
-            end
-            for (i = 6; i < 8; i = i + 1) begin
-              // +len since this is another block
-              a[i] <= buf_in[(j+i+(3*len))*16+:16];
-              b[i] <= buf_in[(j+i+(4*len))*16+:16];
-              zeta[i] <= zetas[k+3];
-            end
-          end else if (read) begin
+
+          // stage 6 : len = 2; **last stage**
+          else if (stage == 6) begin
             for (i = 0; i < 2; i++) begin
               buf_out[(j+i)*16+:16] <= out0[i];
               buf_out[(j+i+len)*16+:16] <= out1[i];
@@ -237,8 +284,10 @@ module ntt (
               buf_out[(j+i+(4*len))*16+:16] <= out1[i];
             end
             step <= next_blk;
+            cooley_tookey_set <= cooley_tookey_set + 1;
           end
         end
+
       end
     end  // end for enable
   end  // end always block
@@ -249,6 +298,7 @@ endmodule
 
 module cooley_tookey (
     input clk,
+    input start,
     input signed [15:0] a,
     input signed [15:0] b,
     input signed [15:0] zeta,
@@ -259,9 +309,10 @@ module cooley_tookey (
 
   fqmul mul (
       .clk(clk),
-      .a  (zeta),
-      .b  (b),
-      .r  (t)
+      .start(start),
+      .a(zeta),
+      .b(b),
+      .r(t)
   );
 
   assign out0 = a + t;

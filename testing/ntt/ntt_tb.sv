@@ -1,30 +1,34 @@
+`timescale 1ns/1ps
 module ntt_tb;
-  reg [15:0] in[256];
-  wire [(16*256)-1:0] out;
+  reg signed [15:0] in[256];
+  wire signed [15:0] out[256];
   reg clk;
-  reg reset;
   reg enable;
+  reg reset;
   wire valid;
 
   ntt uut (
       .clk(clk),
       .enable(enable),
-      .in(in),
       .reset(reset),
+      .in(in),
       .out(out),
       .valid(valid)
   );
 
-  wire [3:0] clt_set;
+  wire [4:0] clt_set;
   wire [3:0] stage;
   wire [3:0] step;
   wire[7:0] start, len, k, j;
-  wire [(16*256) - 1: 0] buf_in;
-  wire [15:0] buf_out[256];
-  wire [15:0] a[8],b[8], zeta[8], out0[8], out1[8];
-  wire read;
+  wire signed [(16*256) - 1: 0] buf_in;
+  wire signed [15:0] buf_out[256];
+  wire signed [15:0] a[8],b[8], zeta[8], out0[8], out1[8];
+  wire [2:0] compute_count;
+  wire fqmul_start;
+  wire [15:0] test_zeta[4];
 
-  assign read = uut.read;
+  assign fqmul_start = uut.fqmul_start;
+  assign compute_count = uut.compute_count;
   assign clt_set = uut.cooley_tookey_set;
   assign stage = uut.stage;
   assign step = uut.step;
@@ -33,8 +37,11 @@ module ntt_tb;
   assign k = uut.k;
   assign j = uut.j;
   assign buf_in = uut.buf_in;
-  genvar i;
+  genvar index;
+  for (index = 0; index < 4; index++)
+    assign test_zeta[index] = uut.test_zeta[index];
 
+  genvar i;
   for (i=0; i<8;i++) begin: g_debug_clt
     assign a[i] = uut.a[i];
     assign b[i] = uut.b[i];
@@ -61,15 +68,27 @@ module ntt_tb;
     clk = 0;
     forever #1 clk = ~clk;
   end
+  integer fd;
+
 
   initial begin
+    fd = $fopen("ntt_out.txt", "w");
+    if (fd == 0) $fatal("cannot open file");
+
     $readmemb("test_vect.bin", in);
     enable = 0;
     reset = 1;
     #10 reset = 0;enable = 1;
     wait(valid);
+    #10;
     $display("----------------Done!---------------");
-    $display("out:%h", out);
+    for(int i = 0; i < 256;i++) begin
+      $display("%d", out[i]);
+    end
+    for (int i = 0; i < 256; i++) begin
+      $fdisplay(fd, "%0d", out[i]);
+    end
+    $fclose(fd);
     $finish;
   end
 endmodule

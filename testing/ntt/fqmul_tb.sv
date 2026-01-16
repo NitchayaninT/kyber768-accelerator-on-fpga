@@ -1,46 +1,44 @@
-module tb_fqmul;
+`timescale 1ns/1ps
+module fqmul_tb;
 
+  reg start;
   reg clk;
   reg signed [15:0] a, b;
   wire signed [15:0] r;
 
   fqmul dut (
     .clk(clk),
+    .start(start),
     .a(a),
     .b(b),
     .r(r)
   );
 
-  // clock: 100 MHz
-  always #5 clk = ~clk;
+  always #1 clk = ~clk;
 
   initial begin
     clk = 0;
+    start = 0;
     a = 0;
     b = 0;
-
-    // wait reset-free cycles
-    #20;
-
+    #10;
     // test vector 1
+    start = 1;
     a = 16'sd17;
     b = 16'sd23;
-    #10; // 1 cycle
+    #2;
+    start = 0;
+    #6;
     $display("r = %d", r);
-
     // test vector 2
+    start = 1;
     a = -16'sd1044;
     b = 16'sd287;
-    #10;
+    #2;
+    start = 0;
+    #6;
     $display("r = %d", r);
-
-    // back-to-back test
-    a = 16'sd622;
-    b = -16'sd171;
     #10;
-    $display("r = %d", r);
-
-    #20;
     $finish;
   end
 endmodule
