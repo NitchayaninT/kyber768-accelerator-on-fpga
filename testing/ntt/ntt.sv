@@ -1,3 +1,4 @@
+`include "cooley_tukey.sv"
 module ntt (
     input enable,
     input reset,
@@ -55,7 +56,7 @@ module ntt (
   genvar index;
   generate
     for (index = 0; index < 8; index++) begin : g_cooley
-      cooley_tookey clt (
+      cooley_tukey clt (
           .clk(clk),
           .start(fqmul_start),
           //input
@@ -75,7 +76,7 @@ module ntt (
   reg [2:0] stage;  // outer loop
   reg [2:0] compute_count;
 
-  reg [4:0] cooley_tookey_set;
+  reg [4:0] cooley_tukey_set;
   reg [7:0] start, len, k, j;
   wire signed [15:0] test_zeta[4];
   for (index = 0; index <4; index++)
@@ -92,7 +93,7 @@ module ntt (
       buf_out <= 0;
       step <= load;
       stage <= 0;
-      cooley_tookey_set <= 0;
+      cooley_tukey_set <= 0;
       start <= 0;
       j <= 0;
       k <= 1;
@@ -121,7 +122,7 @@ module ntt (
 
       // when finished each stage reset the variable
       else if (step == next_stage) begin
-        cooley_tookey_set <= 0;  // each stage use 16 cooley_tookey_set
+        cooley_tukey_set <= 0;  // each stage use 16 cooley_tukey_set
         len <= len >> 1;
         start <= 0;
         j <= 0;
@@ -135,7 +136,7 @@ module ntt (
       else if (step == next_blk) begin
         if (stage < 5) begin
           k <= k + 1;
-          if (cooley_tookey_set < 16) begin // here is bug
+          if (cooley_tukey_set < 16) begin // here is bug
             start <= j + 8 + len;
             j <= j + 8 + len;
             //input
@@ -146,7 +147,7 @@ module ntt (
           end
         end else if (stage == 5) begin
           k <= k + 2;
-          if (cooley_tookey_set < 16) begin
+          if (cooley_tukey_set < 16) begin
             start <= j + 8 + (2 * len);
             j <= j + 8 + (2 * len);  // c-ref : j = start
             step <= compute;
@@ -156,7 +157,7 @@ module ntt (
           end
         end else if (stage == 6) begin
           k <= k + 4;
-          if (cooley_tookey_set < 16) begin
+          if (cooley_tukey_set < 16) begin
             start <= j + 8 + (4 * len);
             j <= j + 8 + (4 * len);  // c-ref : j = start
             step <= compute;
@@ -243,7 +244,7 @@ module ntt (
               buf_out[(j+i)*16+:16] <= out0[i];
               buf_out[(j+i+len)*16+:16] <= out1[i];
             end
-            cooley_tookey_set <= cooley_tookey_set + 1;
+            cooley_tukey_set <= cooley_tukey_set + 1;
             if (j + 8 >= start + len) begin
               step <= next_blk;
             end else begin
@@ -262,7 +263,7 @@ module ntt (
               buf_out[(j+i+len+len)*16+:16] <= out1[i];
             end
             step <= next_blk;
-            cooley_tookey_set <= cooley_tookey_set + 1;
+            cooley_tukey_set <= cooley_tukey_set + 1;
           end
 
           // stage 6 : len = 2; **last stage**
@@ -284,7 +285,7 @@ module ntt (
               buf_out[(j+i+(4*len))*16+:16] <= out1[i];
             end
             step <= next_blk;
-            cooley_tookey_set <= cooley_tookey_set + 1;
+            cooley_tukey_set <= cooley_tukey_set + 1;
           end
         end
 
@@ -296,7 +297,7 @@ module ntt (
   end
 endmodule
 
-module cooley_tookey (
+module cooley_tukey (
     input clk,
     input start,
     input signed [15:0] a,
