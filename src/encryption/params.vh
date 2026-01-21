@@ -5,8 +5,8 @@
 `define KYBER_ETA 2
 `define KYBER_DU 10
 `define KYBER_DV 4
-`define KYBER_R_WIDTH 12
-`define KYBER_ARITH_WIDTH 16
+`define KYBER_RQ_WIDTH 12
+`define KYBER_POLY_WIDTH 16
 `define KYBER_SPOLY_WIDTH 3
 
 // HASH
