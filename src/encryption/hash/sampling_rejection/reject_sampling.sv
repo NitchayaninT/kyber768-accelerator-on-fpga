@@ -49,6 +49,7 @@ module reject_sampling(
             running <= 1'b0;
         end else
             if(enable && !running) begin
+                public_matrix_poly <= {4096{1'b0}};
                 j <= 0;
                 i <= 0;
                 done <= 1'b0;
@@ -57,6 +58,7 @@ module reject_sampling(
             else if(!done && running) begin
                 if (i==224 || j >= N) begin
                     running <= 1'b0;
+                    //public_matrix_poly <= {4096{1'b0}};
                     done <= 1'b1;
                 end
                 // process 3 bytes at a time

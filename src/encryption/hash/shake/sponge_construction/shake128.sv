@@ -6,12 +6,14 @@ module shake128 #(
     input               enable,
     input               rst,
     input  [255:0]      in,          // coins or seeds
-    input  [3:0]        domain,      // domain separator 1111
+   // input  [3:0]        domain,      // domain separator 1111
+    input  [7:0]        index_i,
+    input  [7:0]        index_j,
     input  [13:0]       output_len,  // output length 
     output reg [5375:0] output_string, // max 4*R bits
     output reg          done // done flag
 );
-
+    // Reorder per 8 bytes so that the bits in the byte are stored in little endian order
     // Reorder bytes so that it absorbs left most byte as first byte like in python
     wire [255:0] msg_bits;
     genvar b;
@@ -28,27 +30,31 @@ module shake128 #(
     endgenerate
     
     // Step 0: added domain seperator
-    wire [259:0] in_updated;
+    // 260 bits = included domain
+    // 272 bits = included matrix index (34 bytes like specified in kyber)
+    wire [271:0] in_updated;
     assign in_updated[255:0]   = msg_bits;
-    assign in_updated[259:256] = domain; 
-    // assign in_updated = {domain, in}; // 260 bits
+    assign in_updated[263:256] = index_i; //byte 32
+    assign in_updated[271:264] = index_j; //byte 33 (last)
+    // assign in_updated = {domain, in}; // 272 bits
 
     wire [R-1:0] rate_block;
-    assign rate_block = {{(R-260){1'b0}}, in_updated}; // message in LSBs of rate
+    assign rate_block = {{(R-272){1'b0}}, in_updated}; // message in LSBs of rate
 
     // Step 1 : padding
     wire [R-1:0] padded_mask;
     padding #(
         .R(R)
     ) pad_inst (
-        .input_len(11'd260), // input length in integer (260)
+        .input_len(11'd272), // input length in integer (272)
+        .suffix(8'h1F),
         .block_out(padded_mask)
     );
 
     // apply pad mask to get padded block
     wire [R-1:0] padded_block = padded_mask | rate_block;
 
-    // calculate capacity bits 
+    // calculate capacity bits
     localparam integer C = 1600 - R;
 
     // Step 2 : Absorbion (only once in this case)
@@ -64,6 +70,7 @@ module shake128 #(
     localparam PH_SQUEEZE = 3'd2;
     localparam PH_ASSIGN = 3'd3;
     localparam PH_DONE    = 3'd4;
+    localparam PH_CLEAR = 3'd5;
 
     reg  [2:0]    phase;
     reg  [1599:0] state_reg; // current sponge state S
@@ -91,7 +98,7 @@ module shake128 #(
             state_reg     <= 1600'b0;
             bits_squeezed <= 14'd0;
             output_string <= {5376{1'b0}}; // initialize output str to 000000...
-            perm_enable   <= 1'b0; 
+            perm_enable   <= 1'b0;
             done          <= 1'b0;
             
         end else begin
@@ -102,9 +109,10 @@ module shake128 #(
                     done <= 1'b0; // clear done when starting a new run
                     if (enable) begin
                         // load absorbed state and start FIRST permutation
-                        state_reg     <= absorbed_block; // 1344 bits with 256 security bits
+                        //state_reg     <= absorbed_block; // 1344 bits with 256 security bits
                         bits_squeezed <= 14'd0;
                         output_string <= {5376{1'b0}};
+                         state_reg     <= absorbed_block;
                         phase         <= PH_PERMUTE;
                     end
                 end
@@ -114,7 +122,7 @@ module shake128 #(
                     perm_enable   <= 1'b1; // enable permutation (step 3.1)
                     if (perm_valid) begin // if finished 24 rounds 
                         // S <- f(S)
-                        state_reg   <= perm_out; 
+                        state_reg   <= perm_out;
                        // perm_enable <= 1'b0; // stop permutation, then go squeeze
                         // perm_enable will automatically go back to 0 next cycle
                         phase       <= PH_SQUEEZE;
@@ -150,7 +158,16 @@ module shake128 #(
                 // 4. Done
                 PH_DONE: begin
                     done <= 1'b1;
+                    phase <= PH_CLEAR;
+                    //phase <= PH_IDLE;
                     // can read output_string now
+                end
+
+                PH_CLEAR: begin
+                    if(enable) begin
+                        phase <= PH_IDLE;
+                        done <= 1'b0;
+                    end
                 end
             endcase
         end
