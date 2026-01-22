@@ -9,7 +9,7 @@ module shake128 #(
    // input  [3:0]        domain,      // domain separator 1111
     input  [7:0]        index_i,
     input  [7:0]        index_j,
-    input  [13:0]       output_len,  // output length 
+    input  [13:0]       output_len,  // output length
     output reg [5375:0] output_string, // max 4*R bits
     output reg          done // done flag
 );
@@ -66,6 +66,7 @@ module shake128 #(
     // Step 3.2 : Squeeze. If output_len <= bits_squeezed. Stop
         // else, permute again and then squeeze until bits_squeezed = output_len
     localparam PH_IDLE    = 3'd0;
+    //localparam PH_IF_FIRST_ABSORB = 3'd1;
     localparam PH_PERMUTE = 3'd1;
     localparam PH_SQUEEZE = 3'd2;
     localparam PH_ASSIGN = 3'd3;
@@ -112,10 +113,12 @@ module shake128 #(
                         //state_reg     <= absorbed_block; // 1344 bits with 256 security bits
                         bits_squeezed <= 14'd0;
                         output_string <= {5376{1'b0}};
-                         state_reg     <= absorbed_block;
-                        phase         <= PH_PERMUTE;
+                        state_reg     <= absorbed_block;
+                        phase <= PH_PERMUTE;
                     end
                 end
+
+
                 // 1. Wait for permutation core to finish
                 // problem : it changes phase to PH_SQUEEZE, but doesnt permute, perm_valid never enables
                 PH_PERMUTE: begin
@@ -172,4 +175,5 @@ module shake128 #(
             endcase
         end
     end
+
 endmodule

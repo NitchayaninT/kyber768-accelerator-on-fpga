@@ -29,7 +29,7 @@ module public_matrix_gen(
     reg rej_enable; // enable calling sampling rejection
     wire shake_pm_done; // done flag for public matrix's shake
     wire rej_done; // done flag for samp rejection
-    wire [5375:0] public_matrix_stream; // stream after shake
+    wire [5375:0] public_matrix_stream; // stream after shake.
 
     shake128 shake128_public_matrix (
         .clk(clk),
