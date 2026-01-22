@@ -18,8 +18,7 @@ module public_matrix_gen_tb;
   wire public_matrix_poly_valid;
   //wire [4095:0] noise_poly_out;
   wire [4095:0] public_matrix_poly_out;
-  integer i,j;
-  // for printing public matrix
+
   reg [15:0] coeff;
 
   public_matrix_gen hash_top_uut (
@@ -51,15 +50,40 @@ task print_decimal_pm(input [4095:0] S);
     end
 endtask
 
+wire [15:0] poly_out_debug[3][3][255];
+genvar x,y,z;
+generate
+    for (x=0;x<3;x++) begin
+        for(y=0;y<3;y++) begin
+            for(z=0;z<256;z++)begin
+                localparam int p = (x*3)+y;
+                assign poly_out_debug[x][y][z] = hash_top_uut.A[p][z];
+            end
+        end
+    end
+endgenerate
 initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, public_matrix_gen_tb);
-    $monitor("phase:%d\n enable: %h\n index_i:%d\n index_j:%d\n state_reg: %h\n bit_squeezed :%d\n output len:%d\n output string:%h\n done:%d\n", hash_top_uut.shake128_public_matrix.phase, hash_top_uut.shake128_public_matrix.enable, hash_top_uut.shake128_public_matrix.index_i, hash_top_uut.shake128_public_matrix.index_j, hash_top_uut.shake128_public_matrix.state_reg, hash_top_uut.shake128_public_matrix.bits_squeezed, hash_top_uut.shake128_public_matrix.output_len, hash_top_uut.shake128_public_matrix.output_string, hash_top_uut.shake_pm_done);
+    $monitor(" phase:%d\n enable: %h\n index_i:%d\n index_j:%d\n state_reg: %h\n bit_squeezed :%d\n output len:%d\n output string:%h\n done:%d\n", hash_top_uut.shake128_public_matrix.phase, hash_top_uut.shake128_public_matrix.enable, hash_top_uut.shake128_public_matrix.index_i, hash_top_uut.shake128_public_matrix.index_j, hash_top_uut.shake128_public_matrix.state_reg, hash_top_uut.shake128_public_matrix.bits_squeezed, hash_top_uut.shake128_public_matrix.output_len, hash_top_uut.shake128_public_matrix.output_string, hash_top_uut.shake_pm_done);
     $monitor("index: %d\n rej enable: %d\n, pm poly out:%h\n rej done:%h\n running:%d\n",hash_top_uut.public_matrix_poly_index,hash_top_uut.reject_sampling_module.enable, hash_top_uut.reject_sampling_module.public_matrix_poly,hash_top_uut.rej_done, hash_top_uut.reject_sampling_module.running);
     clk = 0;
     forever #(`DELAY / 2) clk = ~clk;
   end
+integer i,j,k;
+// for printing public matrix
+integer round = 0;
 
+reg [2:0] prev_state_reg;
+always @(*) begin
+    if (hash_top_uut.shake128_public_matrix.phase==4) begin
+        $display("\n\nOutput of round %d", round);
+        for(i = 0; i< 25;i++) begin
+            $display("%d: %d", i, hash_top_uut.shake128_public_matrix.state_reg[i*64+:64]);
+        end
+        round++;
+    end
+end
 initial begin
     // -- INPUT -- //
     rst = 1;
@@ -74,7 +98,7 @@ initial begin
     //wait (noise_done == 1'b1);
     wait (public_matrix_done == 1'b1);
 
-    #(`DELAY * 5);
+    #(`DELAY * 10);
 
     /*$display("\n\nnoise output from SHAKE : %h\n",hash_top_uut.noise_stream[1023:0]);
     //print_state_bytes(hash_top_uut.noise_stream[1023:0]);
@@ -108,6 +132,15 @@ initial begin
         $write("\n");
     end
 
+    /*
+    //Pakin debuging!
+    for (i=0;i<3;i++) begin
+        for(j=0;j<3;j++) begin
+            for(k=0;k<256;k++)begin
+                $display("i=%d, j=%d, k=%d, value=%d",i, j, k, poly_out_debug[i][j][k]);
+            end
+        end
+    end*/
 
  end
 endmodule
@@ -165,3 +198,6 @@ public matrix poly 6: 03ea0b51064307ff002a04a3046c069c044c0a95098100930a6d010504
 public matrix poly 7: 0caf04660c5007e600b90a7503fe096306ad04ef0694084502c709da003809db093408d10969074c06ca021304030c2407bf05770ae40aa60888099f008e0411088908230c750180039406e404da084f0cc200ff040803bd0a46090107bf032c01d300fb01770350044900450b150878090a040d038a053306e006950a19019e0c3907d50295055c031f090d093f043403f00b210ab40271034a09ec0c4e02ee042d0bdc08f203d0045401c80a27003a03f3065f0588072a017f07900bef010c05fe096303c60c3709df019d048a0c0c0091021f045e0cf601f70c1b0a0204bc0ad8007f023003e70bd90a59022204850ab202b80053042e07430b1f06b40a280cce029907d8081401de03a80740005d02a00b880cd60323048401fc02c20bc203150705017c081c04cd04e30b020801076f09890377055e0798025700e80b7f096c05f6050709ac046204a1043406110b9d0b3e027d04d607c6043d05290878068e047f01b2049f02810a6e05630a6a012a0a0200a60668029e077a064400160ce00a370c48084a0a96009c0324066c06600b2d007d09720a39004e028e017b056e0b4c0c99047a052c070e0786021d0cbc0652001f067203410cf70c010348034b00fb0c8709f200780b6c088405400c4e00c1027e0791084001940c9f0603054200110689031c035e085d079c056a07c703fb0769080005e90a16019303dd
 public matrix poly 8: 007f0086050807de052303ee03c7032a00050b95044703f804da0c4501aa06cf05e7050206fe04790755001202b409f809ff00440c210add0af10936020f00920891047b04fd0c4409200a160a5e082d08e90ab003e4078e0a7509f102460bfc01a108cd0b10083e05410ce306f802b402380a180c5c07270c37074b0063048907df07f2019102f906d5059f03e7043009f7006d006900b60902064509ea072f070d00b8052905fa08b7056d0594044a0569064b0c620cd0070e065a0b660af709a20be5078a023308150acc006b01b0005b037707f70532045f0050034108920842045707be03b20b580a1404a2076306c40499006f09a104b20a2708ff0ae90a80005506cf0b140d0009310cb5036a0b360a2c07e3084305410af504fe01ea048c00ad001f00f0082603a30127072c09960c4402c00566078e0b0609b903bb05ad0b7607a20794041907ae015107cf09130306052b06660c9d08ea0a380cd6011a089f00470b7b017601e504010ca70a0a0a0201240cbf002d02fe04fb01ed047600500a6202c402db036304910905092e05e6081c0a8105b3009701030a7f0054006709be0052086206ac096f084408e205b101dc051705960cce023009a70a1806790b1a09ec050a0a23043c00a103d109b400b50678044707d900300b770362062c004207630a2d007105d2065f061c042a01e803050bb409cb00ac0030
 */
+
+// Comparing SHAKE output with C (4032 bits)
+// poly 1:9d9747aa41c3ca9a0f40b4a8c79e1bdaf86fb52cc226373fa523bab2af1e46e5fd046f4dfd05137d5dde7c1bcb584e717e93d03e8f9d1a4a8bf581f7455d44f4dc0d8e25913e82c417ef29bf2d26cddac2c9adb74efeeee4e6d3f13faaa12e430258e5c7a37c37584db6fab6008f8832003b15d0a5af18dcc766496b922242012a8a2a4c0511ac71476629fc9d5871939278803bdf9ec049e75f83da4956fc4e7c9b62307e6ffdf1a73387ae69ca267e8cd9844473bfc24ce6b08ab9447dca14a62a032514b71a3d69f3e532152c68d02180c170ca99951a748a17592011d946dbe3e0d14d8e4005e90c19189ff2826a94a067ac021ac76db1699ee2b6ddda083f45e29e2d537e4500032536668d5917fb1c4fe8a73f31799a3df8b130d368513b3a18a24f6623207337249b137851d67624c458ce6cef1a63257e3d92cb61cce10f9e979049a6d9b3194fcaa2f5743b976a9de7b4dcf61568e639cf61df867ba391d6f27bca44f5adac07e09e088cda63f8a5214450ce313e350c10a65d34975041a73f78c8968c6e75a0895adc506359095ccdb936cbbf2426fb53fdc53414cddeb8d6a95de8a9debd8634ebeb861ca0d3551feef5f4b39154acb90c697ec1d25101950fac0623a53fef8647ce485b07a082e9c2d7dd598b053984b21916ee66a153528fb631255541f9b4e5ae8fe837a706c2ced50679
