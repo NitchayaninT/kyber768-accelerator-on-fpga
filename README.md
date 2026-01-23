@@ -37,7 +37,7 @@ Instead, it is used to establish a shared secret, which can then be used with fa
 - Decode PK
 - Decode Decompress Msg
 - Hash (SHAKE128)
-- Sampling Rejection
+- Sampling Rejection, CBD
 - Compress Encode
 
 ### Main Computation

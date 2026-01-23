@@ -1,6 +1,6 @@
-Workflow
+# Encapsulation Workflow
 - Key gen -> creates rho and t_hat
-// -- INPUTS -- //
+## -- INPUTS -- 
 - Input Public Key (rho, t hat)
     - rho = 256 bits seed for A Matrix
     - t hat = PK's polynomial vector, used for NTT
@@ -8,7 +8,7 @@ Workflow
         each polynomial is degree-256
 - Input R = Random 256 bits from PRNG
 
-// -- Pre/Post Indcpa Encryption -- //
+## -- Pre/Post Indcpa Encryption -- 
 Everything that must happen before the NTT math block can run
 - Input Public key (rho, t hat)
 - R = random 256 bits
@@ -16,7 +16,7 @@ Everything that must happen before the NTT math block can run
     - m = SHA3-256(R), plain text message
     - (coins, pre-k) = SHA3-512(SHA3-256(PK),m)
 
-// -- Public Matrix A generation -- //
+## -- Public Matrix A generation -- 
 - Input PK into Decode PK
     - Output Seed (rho)
 - Input seed (rho) of 256 bits into SHAKE128
@@ -25,7 +25,7 @@ Everything that must happen before the NTT math block can run
     - Output : 9 Polynomials with 256 coefficients, collect them 
     in the Public matrix array 
 
-// -- Noise generation -- //
+## -- Noise generation -- 
 - input R (random 256 bits)
 - Apply SHA3-256 to R : SHA3-256(R)
     - Output : m  (plain text msg)
