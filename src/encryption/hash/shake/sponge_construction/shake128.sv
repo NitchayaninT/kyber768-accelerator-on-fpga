@@ -1,4 +1,3 @@
-`timescale 1ns / 1ps
 module shake128 #(
     parameter integer R = 1344 // rate in SHAKE128
 )(
