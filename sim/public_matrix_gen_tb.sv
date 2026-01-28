@@ -9,30 +9,23 @@ module public_matrix_gen_tb;
   reg clk;
   reg enable;
   reg rst;
-  //reg [255:0] coins;
   reg [255:0] seed;
-  //reg noise_done;
   reg public_matrix_done;
   //// output
   wire [3:0] public_matrix_poly_index;
   wire public_matrix_poly_valid;
-  //wire [4095:0] noise_poly_out;
-  wire [4095:0] public_matrix_poly_out;
-
+  wire [15:0] A [0:8][0:255];
   reg [15:0] coeff;
 
   public_matrix_gen hash_top_uut (
         .clk(clk),
         .enable(enable),
         .rst(rst),
-        //.coins(coins),
         .seed(seed),
-        //.noise_done(noise_done),
         .public_matrix_done(public_matrix_done),
         .public_matrix_poly_index(public_matrix_poly_index),
         .public_matrix_poly_valid(public_matrix_poly_valid),
-        .public_matrix_poly_out(public_matrix_poly_out)
-        //.noise_poly_out(noise_poly_out)
+        .A(A)
   );
   // reverse bytes for printing (this time, per 4 bytes)
 task print_decimal_pm(input [4095:0] S);
@@ -65,8 +58,8 @@ endgenerate
 initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, public_matrix_gen_tb);
-    $monitor(" phase:%d\n enable: %h\n index_i:%d\n index_j:%d\n state_reg: %h\n bit_squeezed :%d\n output len:%d\n output string:%h\n done:%d\n", hash_top_uut.shake128_public_matrix.phase, hash_top_uut.shake128_public_matrix.enable, hash_top_uut.shake128_public_matrix.index_i, hash_top_uut.shake128_public_matrix.index_j, hash_top_uut.shake128_public_matrix.state_reg, hash_top_uut.shake128_public_matrix.bits_squeezed, hash_top_uut.shake128_public_matrix.output_len, hash_top_uut.shake128_public_matrix.output_string, hash_top_uut.shake_pm_done);
-    $monitor("index: %d\n rej enable: %d\n, pm poly out:%h\n rej done:%h\n running:%d\n",hash_top_uut.public_matrix_poly_index,hash_top_uut.reject_sampling_module.enable, hash_top_uut.reject_sampling_module.public_matrix_poly,hash_top_uut.rej_done, hash_top_uut.reject_sampling_module.running);
+    //$monitor(" phase:%d\n enable: %h\n index_i:%d\n index_j:%d\n state_reg: %h\n bit_squeezed :%d\n output len:%d\n output string:%h\n done:%d\n", hash_top_uut.shake128_public_matrix.phase, hash_top_uut.shake128_public_matrix.enable, hash_top_uut.shake128_public_matrix.index_i, hash_top_uut.shake128_public_matrix.index_j, hash_top_uut.shake128_public_matrix.state_reg, hash_top_uut.shake128_public_matrix.bits_squeezed, hash_top_uut.shake128_public_matrix.output_len, hash_top_uut.shake128_public_matrix.output_string, hash_top_uut.shake_pm_done);
+    //$monitor("index: %d\n rej enable: %d\n, pm poly out:%h\n rej done:%h\n running:%d\n",hash_top_uut.public_matrix_poly_index,hash_top_uut.reject_sampling_module.enable, hash_top_uut.reject_sampling_module.public_matrix_poly,hash_top_uut.rej_done, hash_top_uut.reject_sampling_module.running);
     clk = 0;
     forever #(`DELAY / 2) clk = ~clk;
   end
@@ -75,7 +68,7 @@ integer i,j,k;
 integer round = 0;
 
 reg [2:0] prev_state_reg;
-always @(*) begin
+/*always @(*) begin
     if (hash_top_uut.shake128_public_matrix.phase==4) begin
         $display("\n\nOutput of round %d", round);
         for(i = 0; i< 25;i++) begin
@@ -84,10 +77,10 @@ always @(*) begin
         round++;
     end
 end
+*/
 initial begin
     // -- INPUT -- //
     rst = 1;
-    //coins  = 256'hf8f11229044dfea54ddc214aaa439e7ea06b9b4ede8a3e3f6dfef500c9665598;
     seed = 256'hf8f11229044dfea54ddc214aaa439e7ea06b9b4ede8a3e3f6dfef500c9665598;
     enable = 0;
 
@@ -100,47 +93,16 @@ initial begin
 
     #(`DELAY * 10);
 
-    /*$display("\n\nnoise output from SHAKE : %h\n",hash_top_uut.noise_stream[1023:0]);
-    //print_state_bytes(hash_top_uut.noise_stream[1023:0]);
-    $display("\n\ndone : %b\n noise string (4096 bits) = %h\n", noise_done, noise_poly_out);
-
-    $display("CBD coeffs (0..255):");
-    for (i = 0; i < 256; i=i+1) begin
-        $write("%0d ", $signed(noise_poly_out[i*16 +: 16]));
-        //if(i%16==0 && i!=0) $display();
-    end*/
-
-    /*$display("\n\npublic matrix output from SHAKE : %h\n",
-        hash_top_uut.public_matrix_stream[5375:0]);
-    //print_state_bytes(hash_top_uut.public_matrix_stream[5375:0]);
-    $display("\n\nindex : %d\n public matrix string (4096 bits) = %h\n",
-        public_matrix_poly_index, public_matrix_poly_out[4095:0]);
-    print_decimal_pm(public_matrix_poly_out);
-    wait (public_matrix_done == 1'b1);
-        @(posedge clk);  // +1 clock
-    $finish;*/
-
-
     for (j = 0; j < 9; j++) begin
         $display("=== Poly %0d ===", j);
         for (i = 0; i < 256; i++) begin
             // pack 16 unpacked bits into a packed vector
-            coeff = hash_top_uut.A[j][i];
+            coeff = A[j][i];
             $write("%0d ", coeff);
             if ((i % 16) == 15) $write("\n");
         end
         $write("\n");
     end
-
-    /*
-    //Pakin debuging!
-    for (i=0;i<3;i++) begin
-        for(j=0;j<3;j++) begin
-            for(k=0;k<256;k++)begin
-                $display("i=%d, j=%d, k=%d, value=%d",i, j, k, poly_out_debug[i][j][k]);
-            end
-        end
-    end*/
 
  end
 endmodule

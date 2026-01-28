@@ -6,7 +6,7 @@ module shake256 #(
     input               enable,
     input               rst,
     input  [255:0]      in,          // coins
-    input  [3:0]        domain,      // domain separator 1111
+    input  [7:0]        nonce,       // 1 byte input
     input  [13:0]       output_len,  // output length
     output reg [1023:0] output_string, // max 4*R bits
     output reg          done // done flag
@@ -22,20 +22,20 @@ module shake256 #(
     endgenerate
     
     // Step 0: added domain seperator
-    wire [259:0] in_updated;
+    wire [263:0] in_updated;
     assign in_updated[255:0]   = msg_bits;
-    assign in_updated[259:256] = domain;
-    // assign in_updated = {domain, in}; // 260 bits
+    assign in_updated[263:256] = nonce;
 
     wire [R-1:0] rate_block;
-    assign rate_block = {{(R-260){1'b0}}, in_updated}; // message in LSBs of rate
+    assign rate_block = {{(R-264){1'b0}}, in_updated};
 
     // Step 1 : padding
     wire [R-1:0] padded_mask;
     padding #(
         .R(R)
     ) pad_inst (
-        .input_len(11'd260), // input length in integer (260)
+        .input_len(11'd264), // input length in integer (260)
+        .suffix(8'h1F),
         .block_out(padded_mask)
     );
 
@@ -57,7 +57,8 @@ module shake256 #(
     localparam PH_PERMUTE = 3'd1;
     localparam PH_SQUEEZE = 3'd2;
     localparam PH_ASSIGN = 3'd3;
-    localparam PH_DONE    = 3'd4;
+    localparam PH_DONE   = 3'd4;
+    localparam PH_CLEAR = 3'd5;
 
     reg  [2:0]    phase;
     reg  [1599:0] state_reg; // current sponge state S
@@ -144,7 +145,15 @@ module shake256 #(
                 // 4. Done
                 PH_DONE: begin
                     done <= 1'b1;
+                    phase <= PH_CLEAR;
                     // can read output_string now
+                end
+
+                PH_CLEAR: begin
+                    if(enable) begin
+                        phase <= PH_IDLE;
+                        done <= 1'b0;
+                    end
                 end
             endcase
         end

@@ -36,10 +36,9 @@ module shake128 #(
     assign in_updated[255:0]   = msg_bits;
     assign in_updated[263:256] = index_i; //byte 32
     assign in_updated[271:264] = index_j; //byte 33 (last)
-    // assign in_updated = {domain, in}; // 272 bits
 
     wire [R-1:0] rate_block;
-    assign rate_block = {{(R-272){1'b0}}, in_updated}; // message in LSBs of rate
+    assign rate_block = {{(R-272){1'b0}}, in_updated};
 
     // Step 1 : padding
     wire [R-1:0] padded_mask;
@@ -66,7 +65,6 @@ module shake128 #(
     // Step 3.2 : Squeeze. If output_len <= bits_squeezed. Stop
         // else, permute again and then squeeze until bits_squeezed = output_len
     localparam PH_IDLE    = 3'd0;
-    //localparam PH_IF_FIRST_ABSORB = 3'd1;
     localparam PH_PERMUTE = 3'd1;
     localparam PH_SQUEEZE = 3'd2;
     localparam PH_ASSIGN = 3'd3;
@@ -86,7 +84,7 @@ module shake128 #(
         .clk      (clk),
         .enable   (perm_enable),
         .rst      (rst),
-        .in (state_reg),
+        .in       (state_reg),
         .state_out(perm_out),
         .valid    (perm_valid)
     );
@@ -162,7 +160,6 @@ module shake128 #(
                 PH_DONE: begin
                     done <= 1'b1;
                     phase <= PH_CLEAR;
-                    //phase <= PH_IDLE;
                     // can read output_string now
                 end
 

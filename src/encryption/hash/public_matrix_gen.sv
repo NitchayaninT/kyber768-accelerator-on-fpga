@@ -9,21 +9,18 @@ module public_matrix_gen(
     input clk,
     input rst,
     input enable,
-    input [255:0] coins,
     input [255:0] seed,
-    output reg noise_done,
     output reg public_matrix_done,
     // output 1 poly at a time
     output reg [3:0] public_matrix_poly_index,
     output reg public_matrix_poly_valid,
-    output reg [4095:0] public_matrix_poly_out,
-    output reg [15:0] A [0:8][0:255], // each coef has 16 bits
-    output reg [4095:0] noise_poly_out
+    output reg [15:0] A [0:8][0:255] // each coef has 16 bits
 );
 
 // -- Public Matrix Loop Gen -- //
 // Input index i & j along with the seed (specified in NIST203)
 // Reason : so that the poly outputs are different, even tho they're using the same seed
+    wire  [4095:0] public_matrix_poly_out;
     reg [7:0] index_i, index_j;
     reg shake_pm_enable; // enable calling shake module
     reg rej_enable; // enable calling sampling rejection
@@ -74,7 +71,6 @@ module public_matrix_gen(
             shake_pm_enable <= 1'b0;
             rej_enable <= 1'b0;
             public_matrix_done <= 1'b0;
-            public_matrix_poly_out <= 4096'b0;
             public_matrix_poly_valid <= 1'b0;
             public_matrix_poly_index <= 4'd0;
         end else begin
