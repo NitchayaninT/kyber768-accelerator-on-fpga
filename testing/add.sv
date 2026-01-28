@@ -1,8 +1,8 @@
 `include "params.vh"
 module add (
-    input  [`KYBER_POLY_WIDTH-1:0] a[`KYBER_N],
-    input  [`KYBER_POLY_WIDTH-1:0] b[`KYBER_N],
-    output [`KYBER_POLY_WIDTH : 0] r[`KYBER_N]
+    input signed [`KYBER_POLY_WIDTH-1:0] a[`KYBER_N],
+    input signed [`KYBER_POLY_WIDTH-1:0] b[`KYBER_N],
+    output signed [`KYBER_POLY_WIDTH : 0] r[`KYBER_N]
 );
 
   genvar i;

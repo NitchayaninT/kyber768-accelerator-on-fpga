@@ -1,0 +1,9 @@
+{
+  "flags": "-f /home/pakin/workspace/kyber/slang-server.f",
+  "index": [
+    {
+      "dirs": ["src", "sim", "testing/ntt"],
+      "excludeDirs": ["vivado", "unused_module" ]
+    }
+  ]
+}
