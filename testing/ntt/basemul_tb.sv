@@ -9,14 +9,18 @@ module basemul_tb;
   reg signed [`KYBER_POLY_WIDTH - 1:0] b[2];
   reg signed [`KYBER_POLY_WIDTH - 1:0] zeta;
   wire signed [`KYBER_POLY_WIDTH - 1:0] r[2];
+  reg r0_valid;
+  reg r1_valid;
 
   basemul basemul_uut (
       .clk(clk),
-      .start(start),
+      .basemul_start(start),
       .a(a),
       .b(b),
       .zeta(zeta),
-      .r(r)
+      .r(r),
+      .r0_valid(r0_valid),
+      .r1_valid(r1_valid)
   );
 
   initial begin
@@ -44,7 +48,7 @@ module basemul_tb;
     #50 $finish;
   end
 
-  always @(posedge basemul_uut.valid) begin
+  always @(posedge basemul_uut.r1_valid) begin
     $display("a = %d%d, b = %d%d\nr = %d%d\n", a[1], a[0], b[1], b[0], r[1], r[0]);
   end
   initial begin

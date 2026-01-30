@@ -8,11 +8,11 @@ module rams_dp_nc (
     input web,
     input rea,
     input reb,
-    input [6:0] addra, // also adjust the addr size here
-    input [6:0] addrb, // also adjust the addr size here
-    input signed [`KYBER_POLY_WIDTH - 1 : 0] dia,
-    input signed [`KYBER_POLY_WIDTH - 1 : 0] dib,
-    output reg signed [2*`KYBER_POLY_WIDTH - 1: 0] douta,
+    input [6:0] addra,  // also adjust the addr size here
+    input [6:0] addrb,  // also adjust the addr size here
+    input signed [2*`KYBER_POLY_WIDTH - 1 : 0] dia,
+    input signed [2*`KYBER_POLY_WIDTH - 1 : 0] dib,
+    output reg signed [2*`KYBER_POLY_WIDTH - 1:0] douta,
     output reg signed [2* `KYBER_POLY_WIDTH - 1 : 0] doutb
 );
   //reg signed [15:0] RAM[256];
