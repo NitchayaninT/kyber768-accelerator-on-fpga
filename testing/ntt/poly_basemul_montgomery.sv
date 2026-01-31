@@ -141,15 +141,6 @@ module poly_basemul_montgomery (
     end else if (wait_ram_addr) begin
       // when changing addr of rams wait 1 cycle
       // then start the next basemul
-      if (ram_out_re) begin
-        index <= index + 4;
-        ram_in_addra[0] <= index * 4;
-        ram_in_addrb[0] <= index * 4 + 1;
-        ram_in_addra[1] <= index * 4 + 2;
-        ram_in_addrb[1] <= index * 4 + 3;
-        rom_zeta_addr <= 64 + index;
-        ram_out_we <= 0;
-      end
       basemul_start <= 1;
       wait_ram_addr <= 0;
       basemul_cycle_count <= 0;
@@ -160,6 +151,12 @@ module poly_basemul_montgomery (
         ram_in_re <= 0;
       end else begin
         ram_out_we <= 1;
+        index <= index + 4;
+        ram_in_addra[0] <= index * 4;
+        ram_in_addrb[0] <= index * 4 + 1;
+        ram_in_addra[1] <= index * 4 + 2;
+        ram_in_addrb[1] <= index * 4 + 3;
+        rom_zeta_addr <= 64 + index;
         ram_in_re <= 1;
         wait_ram_addr <= 1;
       end
