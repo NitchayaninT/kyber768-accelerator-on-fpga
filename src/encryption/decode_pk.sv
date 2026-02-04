@@ -7,7 +7,8 @@
 module decode_pk (
     input wire [(`KYBER_N)+(`KYBER_K * `KYBER_R_WIDTH * `KYBER_N)-1 : 0] public_key,
     output wire [`KYBER_N - 1 : 0] rho,
-    output wire [(`KYBER_R_WIDTH * `KYBER_N) - 1 : 0] t_trans[3]
+    output wire [(`KYBER_R_WIDTH * `KYBER_N) - 1 : 0] t_trans[3],
+    output wire done
 );
 
   // Noted that concept of transpose in FPGA does not make much sense since we
@@ -23,4 +24,5 @@ module decode_pk (
       ];
     end
   endgenerate
+  assign done = 1'b1;
 endmodule
