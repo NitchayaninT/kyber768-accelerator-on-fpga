@@ -1,5 +1,5 @@
 {
-  "flags": "-f /home/pakin/workspace/kyber/slang-server.f",
+  "flags": "-f /home/pakin/workspaces/kyber/.slang/slang-server.f",
   "index": [
     {
       "dirs": ["src", "sim", "testing/ntt"],

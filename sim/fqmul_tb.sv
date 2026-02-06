@@ -33,7 +33,7 @@ module fqmul_tb;
     // test vector 2
     start = 1;
     a = -16'sd1044;
-    b = 16'sd287;
+    b = 16'sd128;
     #2;
     start = 0;
     #6;

@@ -6,8 +6,8 @@ module rams_dp_nc (
     input clk,
     input wea,
     input web,
-    input rea,
-    input reb,
+    input ena,
+    input enb,
     input [6:0] addra,  // also adjust the addr size here
     input [6:0] addrb,  // also adjust the addr size here
     input signed [2*`KYBER_POLY_WIDTH - 1 : 0] dia,
@@ -25,14 +25,14 @@ module rams_dp_nc (
   end
   */
   always @(posedge clk) begin
-    if (rea) begin
+    if (ena) begin
       if (wea) RAM[addra] <= dia;
       else douta <= RAM[addra];
     end
   end
 
   always @(posedge clk) begin
-    if (reb) begin
+    if (enb) begin
       if (web) RAM[addrb] <= dib;
       else doutb <= RAM[addrb];
     end
