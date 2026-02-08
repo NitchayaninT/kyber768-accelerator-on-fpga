@@ -1,4 +1,3 @@
-`include "montgomery_reduce.sv"
 module fqmul (
   input clk,
   input start,
