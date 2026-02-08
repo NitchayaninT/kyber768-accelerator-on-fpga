@@ -39,7 +39,9 @@ sim/decode_msg_tb.sv
 sim/decode_pk_tb.sv
 sim/decode_sk_tb.sv
 sim/shake128_tb.sv
-testing/ntt/poly_basemul_montgomery.svtesting/ntt/rams_dp_nc_tb.sv
+testing/add/add_tb.sv
+testing/add/add.sv
+testing/ntt/rams_dp_nc_tb.sv
 testing/ntt/rom_zetas_tb.sv
 testing/ntt/basemul.sv
 testing/ntt/basemul_tb.sv
