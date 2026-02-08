@@ -3,11 +3,31 @@
 // #######################################
 // in topmodule we need  to generate r_in somehow!
 // ######################################
+// -- PRE_ENCRYPTION MODULE --
+// SUBMODULE LIST
+// 1. sha3_256
+// 2. sha3_512
+// 3. decode_pk
+// 4. decode_msg
+// 5. public_matrix_gen
+// 6. noise_gen
+// #######################################
+// -- STEPS --
+// 1. Hash random input r_in to get msg
+// 2. Hash encryption_key to get hash_ek
+// 3. Concatenate hash_ek || msg, hash again to get coin and pre_k
+// 4. Decode msg to get msg_poly
+// 5. Decode encryption_key to get rho
+// 6. Generate public matrix A from rho
+// 7. Generate noise polynomials e1,e2,r from coin and pre_k
+// Outputs : msg_poly, e1, e2, r, t_trans, a_t
+// #######################################
+
 module pre_encryption (
     input clk,
     input start,
     input rst,
-    input kem_enc_decap, // flag for encapsulation or decapsulation
+    //input kem_enc_decap, // flag for encapsulation or decapsulation
     input [`KYBER_N - 1:0] r_in, // in kem_enc : R, in kem_dec : msg'
     input [(`KYBER_N)+(`KYBER_K * `KYBER_RQ_WIDTH * `KYBER_N)-1:0] encryption_key,
     output [(`KYBER_N * `KYBER_POLY_WIDTH)-1:0] e2, //flattern
@@ -118,7 +138,14 @@ assign buf0 = {msg, hash_ek};
 // Behavior of the module
   always @(posedge clk) begin
     if(rst) begin
-
+      valid <= 1'b0;
+    end else begin
+      // when noise gen is done, all outputs are ready
+      if(noise_done) begin
+        valid <= 1'b1;
+      end else begin
+        valid <= 1'b0;
+      end
     end
 
   end
