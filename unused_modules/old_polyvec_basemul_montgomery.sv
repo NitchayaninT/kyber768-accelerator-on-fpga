@@ -1,66 +1,32 @@
-// this design is base on KYBER reference
-
 `include "params.vh"
-module poly_basemul_montgomery (
+module old_polyvec_basemul_montgomery (
     input clk,
     input start,
-    input signed [`KYBER_POLY_WIDTH - 1:0] zeta_a,
-    input signed [`KYBER_POLY_WIDTH - 1:0] zeta_b,
     output reg valid
 );
 
-  // **************************************************
-  // Declaration of basemul module
-  // **************************************************
-  reg  basemul_start;
-  wire basemul0_valid;
-  wire basemul1_valid;
-  wire signed [2*`KYBER_POLY_WIDTH - 1:0] ram_in0_dout_low, ram_in1_dout_low;
-  wire signed [2*`KYBER_POLY_WIDTH - 1:0] ram_in0_dout_high, ram_in1_dout_high;
-  wire signed [`KYBER_POLY_WIDTH - 1:0] basemul0_a[2], basemul0_b[2];
-  wire signed [`KYBER_POLY_WIDTH - 1:0] basemul1_a[2], basemul1_b[2];
-  wire signed [`KYBER_POLY_WIDTH - 1:0] basemul0_r[2], basemul1_r[2];
-  wire signed [`KYBER_POLY_WIDTH - 1:0] basemul_zeta[2];
-  // these 2 variable just for readability
-  assign basemul_zeta[0] = zeta_a;  // this is zeta[i]
-  assign basemul_zeta[1] = zeta_b;  // this is -zeta[i]
-  // get input from 2 ram_in
-  // ram_in0 store a
-  // ram_in1 store b
-  assign basemul0_a[1]   = ram_in0_dout_low[31:16];
-  assign basemul0_a[0]   = ram_in0_dout_low[15:0];
-  assign basemul0_b[1]   = ram_in1_dout_low[31:16];
-  assign basemul0_b[0]   = ram_in1_dout_low[15:0];
 
-  assign basemul1_a[1]   = ram_in0_dout_high[31:16];
-  assign basemul1_a[0]   = ram_in0_dout_high[15:0];
-  assign basemul1_b[1]   = ram_in1_dout_high[31:16];
-  assign basemul1_b[0]   = ram_in1_dout_high[15:0];
+  // **************************************************
+  // Implement ROM with BRAM for storing zetas
+  // **************************************************
 
-  basemul basemul0 (
-      .clk(clk),
-      .basemul_start(basemul_start),
-      .a(basemul0_a),
-      .b(basemul0_b),
-      .zeta(basemul_zeta[0]),
-      .r(basemul0_r),
-      .valid(basemul_valid)
+  wire signed [`KYBER_POLY_WIDTH - 1:0] zeta_a;
+  wire signed [`KYBER_POLY_WIDTH - 1:0] zeta_b;
+  reg [6:0] rom_zeta_addr;
+  rom_zetas rom_zetas (
+      .clk (clk),
+      .addr(rom_zeta_addr),
+      .dout(zeta_a)
   );
-  basemul basemul1 (
-      .clk(clk),
-      .basemul_start(basemul_start),
-      .a(basemul1_a),
-      .b(basemul1_b),
-      .zeta(basemul_zeta[1]),
-      .r(basemul1_r),
-      .valid(basemul_valid)
-  );
+  assign zeta_b = -zeta_a;
 
   // **************************************************
   // Implement BRAM for storing input a, b
   // **************************************************
   reg [6:0] ram_in0_addr_low, ram_in0_addr_high;
   reg [6:0] ram_in1_addr_low, ram_in1_addr_high;
+  wire signed [2*`KYBER_POLY_WIDTH - 1:0] ram_in0_dout_low, ram_in1_dout_low;
+  wire signed [2*`KYBER_POLY_WIDTH - 1:0] ram_in0_dout_high, ram_in1_dout_high;
   reg ram_in_we;
   reg ram_in_en;
   rams_dp_nc ram_in0 (
@@ -94,6 +60,7 @@ module poly_basemul_montgomery (
   // Implement BRAM for storing output r
   // **************************************************
   // store basemul0_r
+  wire signed [`KYBER_POLY_WIDTH - 1 : 0] basemul0_r[2], basemul1_r[2];
   wire signed [2*`KYBER_POLY_WIDTH - 1:0] ram_out_dina;
   // store basemul1_r
   wire signed [2*`KYBER_POLY_WIDTH - 1:0] ram_out_dinb;
@@ -120,6 +87,21 @@ module poly_basemul_montgomery (
   // **************************************************
   // control signal & Main behavior
   // **************************************************
+  wire poly_basemul_valid;
+  reg  poly_basemul_start;
+  poly_basemul_montgomery pbm (
+      .clk(clk),
+      .start(poly_basemul_start),
+      .ram_in0_dout_low(ram_in0_dout_low),
+      .ram_in1_dout_low(ram_in1_dout_low),
+      .ram_in0_dout_high(ram_in0_dout_high),
+      .ram_in1_dout_high(ram_in1_dout_high),
+      .zeta_a(zeta_a),
+      .zeta_b(zeta_b),
+      .basemul0_r(basemul0_r),
+      .basemul1_r(basemul1_r),
+      .valid(poly_basemul_valid)
+  );
   reg [6:0] index;  // in 2 basemul design64 times
 
   reg next_index;
@@ -147,7 +129,7 @@ module poly_basemul_montgomery (
     end else if (wait_ram_in) begin
       // when changing addr of rams wait 1 cycle
       // then start the next basemul
-      basemul_start <= 1;
+      poly_basemul_start <= 1;
       wait_ram_in <= 0;
       next_index <= 0;
       ram_out_en <= 0;
@@ -165,16 +147,16 @@ module poly_basemul_montgomery (
       ram_in_en <= 1;
       wait_ram_in <= 1;
     end else begin
-      if (!basemul_valid) begin
+      if (!poly_basemul_valid) begin
         ram_out_we <= 0;
         ram_out_en <= 0;
-        basemul_start <= 0;
+        poly_basemul_start <= 0;
         ram_in_en <= 0;
       end else begin
         ram_out_we <= 1;
         ram_out_en <= 1;
         if (index != 64) next_index <= 1;
-        else valid <= 1;
+        else if (index == 64) valid <= 1;
       end
     end
   end
