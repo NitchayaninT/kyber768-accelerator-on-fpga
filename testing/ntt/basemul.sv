@@ -88,6 +88,6 @@ module basemul (
           end
         endcase
       end
-    end else valid <= 0;
+    end else if (done) valid <= 0;
   end
 endmodule
