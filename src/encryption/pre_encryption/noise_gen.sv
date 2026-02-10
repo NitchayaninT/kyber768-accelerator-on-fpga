@@ -5,7 +5,6 @@ and use cbd to generate noise polynomials*/
 // poly count 0-2 =  r
 // poly count 3-5 = e1
 // poly count 6 = e2 */
-`timescale 1ns / 1ps
 module noise_gen(
     input clk,
     input rst,

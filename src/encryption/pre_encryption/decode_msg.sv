@@ -1,10 +1,9 @@
-`timescale 1ns / 1ps
 `include "params.vh"
 
 // this module is combinational circuit
 module decode_msg (
     input wire [`KYBER_N -1:0] msg,
-    output reg [(`KYBER_N * `KYBER_R_WIDTH)-1:0] poly_msg
+    output reg [(`KYBER_N * `KYBER_RQ_WIDTH)-1:0] poly_msg
 );
 
   integer i;

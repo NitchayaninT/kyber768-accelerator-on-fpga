@@ -1,4 +1,3 @@
-`timescale 1ns / 1ps
 /* SHA3-512 sponge wrapper (Keccak-f[1600]) */
 /* capacity c = 1024, rate r = 576(72 bytes) */
 /* output = 512 bits. 256 for coins, 256 for pre-k */
@@ -25,10 +24,8 @@ module sha3_512 #(
 
     // Function to get python order (reverse bytes for absorption, will remove if real testing)
     // its reversed so that leftmost byte is absorbed first like in python
-    function automatic [7:0] get_msg_byte(input integer idx); //idx is from 0-max byte from the input
-        begin
-            get_msg_byte = in[511-8*idx -: 8];
-        end
+    function automatic [7:0] get_msg_byte(input integer idx);
+        get_msg_byte = in[8*idx +: 8];
     endfunction
 
     // Calculate number of absorption blocks:

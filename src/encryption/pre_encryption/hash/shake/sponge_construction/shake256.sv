@@ -1,4 +1,3 @@
-`timescale 1ns / 1ps
 module shake256 #(
     parameter integer R = 1088 // rate in SHAKE256
 )(
@@ -23,7 +22,7 @@ module shake256 #(
     
     // Step 0: added domain seperator
     wire [263:0] in_updated;
-    assign in_updated[255:0]   = msg_bits;
+    assign in_updated[255:0]   = in;
     assign in_updated[263:256] = nonce;
 
     wire [R-1:0] rate_block;

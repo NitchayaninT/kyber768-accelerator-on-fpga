@@ -5,7 +5,6 @@
 // coeff is a value from 0 - 3328
 // Input : byte stream of 672 bytes (5376 bits)
 // Output : 16 x 256 (4096 bits) poly. each coeff is 12 bits BUT stored in 16 bits form
-`timescale 1ns / 1ps
 module reject_sampling #(
     parameter int N  = 256,
     parameter int Q = 3329,

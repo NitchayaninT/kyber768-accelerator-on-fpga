@@ -1,4 +1,3 @@
-`timescale 1ns / 1ps
 /* SHA3-256 sponge wrapper (Keccak-f[1600]) */
 /* capacity c = 512, rate r = 1088 (136 bytes) */
 /* output = 256 bits */

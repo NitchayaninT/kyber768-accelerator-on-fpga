@@ -1,4 +1,3 @@
-`timescale 1ns / 1ps
 module padding #(
     parameter integer R = 1344
 )(
