@@ -14,7 +14,8 @@ Kyber does not encrypt data directly.
 Instead, it is used to establish a shared secret, which can then be used with fast symmetric encryption (e.g., AES) to protect communication.
 ## Kyber768 Encryption & Decryption Flowchart
 
-![[Kyber768_Flowchart.png]]
+![Kyber768 Flowchart](Kyber768_Flowchart.png)
+
 ## Operations
 ### Key Generation (Simulated)
 - Results :
