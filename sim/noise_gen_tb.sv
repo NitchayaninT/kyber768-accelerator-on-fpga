@@ -15,7 +15,6 @@ module noise_gen_tb;
   wire [15:0] r [0:2][0:255];
   wire [15:0] e1 [0:2][0:255];
   wire [15:0] e2 [0:255];
-  wire [4095:0] noise_poly_out;
 
   reg [15:0] coeff;
 
@@ -25,7 +24,6 @@ module noise_gen_tb;
         .rst(rst),
         .coin(coin),
         .noise_done(noise_done),
-        //.noise_poly_out(noise_poly_out),
         .r(r),
         .e1(e1),
         .e2(e2)

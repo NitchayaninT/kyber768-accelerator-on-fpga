@@ -22,8 +22,6 @@ module sha3_512 #(
     // SHA3 padding suffix byte (SHA3 uses 0x06)
     localparam [7:0] SHA3_SUFFIX = 8'h06; // 101 -> gets from 0x06 + pad 1
 
-    // Function to get python order (reverse bytes for absorption, will remove if real testing)
-    // its reversed so that leftmost byte is absorbed first like in python
     function automatic [7:0] get_msg_byte(input integer idx);
         get_msg_byte = in[8*idx +: 8];
     endfunction

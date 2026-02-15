@@ -23,17 +23,13 @@ module sha3_256 #(
     // SHA3 padding suffix byte (SHA3 uses 0x06)
     localparam [7:0] SHA3_SUFFIX = 8'h06; // 101 -> gets from 0x06 + pad 1
 
-    // Function to get python order
+    // Function to get C python order
     // - For PK: reverse across 1184 bytes (in[9471:0])
     // - For 256-bit R: reverse across 32 bytes (in[255:0])
     // its reversed so that leftmost byte is absorbed first like in pythoon
     function automatic [7:0] get_msg_byte(input integer idx); //idx is from 0-max byte
         begin
-            if (input_len == 14'd256) begin
-                get_msg_byte = in[255-8*idx -: 8];
-            end else begin
-                get_msg_byte = in[9471-8*idx -: 8];
-            end
+            get_msg_byte = in[8*idx +: 8];
         end
     endfunction
 
@@ -59,18 +55,11 @@ module sha3_256 #(
         for (j = 0; j < RATE_BYTES; j = j + 1) begin // stops absorbing when it exceeds the rate byte (1088/8 bytes)
             total_bytes_index = absorb_idx * RATE_BYTES + j; // start from 0 until it stops absorbing
             // it iterates every block until all blocks absorbed. 
-            // total_bytes_index keeps track of the byte index of the whole message, not per block 
-            // Since one block only equals to 1088/8 = 136 bytes, its not enough for PK to be absorbed
-
             // Base byte from message if within length, else 0
             // msg_len_bytes = 256/8 = 32 or 9472/8 = 1184
             if (total_bytes_index < msg_len_bytes) begin
                 // absorb byte by byte from input msg
                 absorb_byte = get_msg_byte(total_bytes_index); // call function to get python order
-                // eg : first byte (rightmost, byte index 0) is now at leftmost position (matches python)
-                // the function returns the leftmost byte IF total_bytes_index = 0
-                // so that the leftmost byte gets absorbed FIRST like in python
-                // it is absorbed at the end of the always loop
             end else begin
                 absorb_byte = 8'h00; 
             end
@@ -78,7 +67,6 @@ module sha3_256 #(
             // Domain seperation 
             // Apply SHA3 suffix (0x06) exactly at byte position msg_len_bytes (after the msg)
             // Do that after absorbing the whole message
-            
             if (total_bytes_index == msg_len_bytes) begin // if its at byte 32 or 1184 (finished absorbing)
                 absorb_byte = absorb_byte ^ SHA3_SUFFIX; // xor 0x06 into that byte
             end
@@ -179,6 +167,7 @@ module sha3_256 #(
 
                 PH_DONE: begin
                     done <= 1'b1;
+                    if (!enable) phase <= PH_IDLE;
                     // output is ready
                 end
 
