@@ -29,10 +29,10 @@ module pre_encryption (
     //input kem_enc_decap, // flag for encapsulation or decapsulation
     input [`KYBER_N - 1:0] r_in, // in kem_enc : R, in kem_dec : msg'
     input [(`KYBER_N)+(`KYBER_K * `KYBER_RQ_WIDTH * `KYBER_N)-1:0] encryption_key,
-    output [`KYBER_POLY_WIDTH-1:0] e2 [0:`KYBER_N-1], //flattern
-    output [`KYBER_POLY_WIDTH-1:0] e1 [0:`KYBER_K-1][0:`KYBER_N-1], //flattern  
-    output [`KYBER_POLY_WIDTH-1:0] r [0:`KYBER_K-1][0:`KYBER_N-1], //flattern
-    output [(`KYBER_N * `KYBER_RQ_WIDTH)-1:0] t_vec [3], //flattern
+    output [`KYBER_POLY_WIDTH-1:0] e2 [0:`KYBER_N-1], 
+    output [`KYBER_POLY_WIDTH-1:0] e1 [0:`KYBER_K-1][0:`KYBER_N-1],  
+    output [`KYBER_POLY_WIDTH-1:0] r [0:`KYBER_K-1][0:`KYBER_N-1], 
+    output [(`KYBER_N * `KYBER_RQ_WIDTH)-1:0] t_vec [3],
     output [`KYBER_POLY_WIDTH-1 : 0] a_t [0:(`KYBER_K*`KYBER_K)-1][0:`KYBER_N-1],
     output [(`KYBER_RQ_WIDTH * `KYBER_N)-1:0] msg_poly,
     output reg [`KYBER_N - 1:0] pre_k,
@@ -43,12 +43,12 @@ module pre_encryption (
   reg [`KYBER_N - 1:0] coin;
   reg [`KYBER_N - 1:0] rho;
   // Internal variable between module
-  wire sha3_valid[3];
-  logic sha512_valid;
-  logic noise_gen_valid;
-  wire public_matrix_valid;
-  wire noise_done;
-  wire public_matrix_done;
+  reg sha3_valid[3];
+  reg sha512_valid;
+  reg noise_gen_valid;
+  reg public_matrix_valid;
+  reg noise_done;
+  reg public_matrix_done;
   wire [`KYBER_N - 1:0] hash_ek;
   logic [(2 * `KYBER_N) - 1:0] buf0; // store hash(ek),msg
   logic [(2 * `KYBER_N) - 1:0] buf1; // store coin,pre_k
@@ -59,6 +59,7 @@ module pre_encryption (
   // 1. Hash R (random bits) to get msg
   sha3_256 sha3_uut1 (
       .clk(clk),
+      .rst(rst),
       .enable(start),
       .in(r_in), // 256 bit random input
       .input_len(256),
@@ -69,6 +70,7 @@ module pre_encryption (
   // 2. get hash(pk)
   sha3_256 sha3_uut2 (
       .clk(clk),
+      .rst(rst),
       .enable(start),
       .in(encryption_key),
       .input_len((`KYBER_N)+(`KYBER_K * `KYBER_RQ_WIDTH * `KYBER_N)), //9472
@@ -86,6 +88,7 @@ end
 // 3. SHA3-512(SHA3-256(ek) || msg) to generate coin, pre_k
   sha3_512 sha3_uut3 (
       .clk(clk),
+      .rst(rst),
       .enable(sha512_valid),
       .in(buf0), // 512 bits
       .input_len(512),
@@ -114,7 +117,6 @@ end
   );
 
 // 5. Decode PK to get seed (rho)
-// ** rho is correct, but t_trans is not
   decode_pk dpk_uut (
       .public_key(encryption_key),
       .rho(rho),

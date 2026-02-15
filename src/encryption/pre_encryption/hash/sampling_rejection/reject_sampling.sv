@@ -33,15 +33,6 @@ module reject_sampling #(
 
     localparam integer coeff_width = 16; // each coeff stored in 16 bits
 
-    // Reorder bytes
-    wire [5375:0] msg_bits;
-    genvar b;
-    generate
-        for (b = 0; b < 672; b = b + 1) begin : REORDER
-            assign msg_bits[b*8 +: 8] = byte_stream[5375-8*b -:8];
-        end
-    endgenerate
-
    always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
             pos  <= '0;
