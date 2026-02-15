@@ -1,0 +1,15 @@
+Inputs : 
+- PK (Public key generated from keygen) = rho || t vector = 9472 bits
+    - rho = 256 bits seed for public matrix (MSB)
+    - t (PK's polynomial vector) = 9216 bits
+- R = Random 256 bits
+
+Outputs : 
+- Plain text msg (m) = SHA3-256(R)
+- (Coins, pre-k) = SHA3-512(SHA3-256(PK), m)
+where m, coins, pre-k = 256 bits
+
+What the outputs are used for
+- coins = used as a seed for generating noise
+- pre-k = used to derive a final shared key 
+- m = plain text msg, use it to decode msg to get m(poly) -> use in addition

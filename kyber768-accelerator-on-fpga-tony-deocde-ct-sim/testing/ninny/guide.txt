@@ -1,0 +1,40 @@
+Design (synthesizable Verilog)
+    Pure hardware description: modules, regs/wires, always blocks, FSMs, etc.
+    No #delays, no $display/$finish.
+    This is what goes to synthesis/FPGA.
+
+Testbench (non-synthesizable)
+    Generates clock/reset and stimulus, captures/compares outputs.
+    Can use initial blocks, #delays, $display, $finish, file I/O, randomization.
+    Used only in simulation.
+
+Permutation
+1. Theta
+- Input = State Array (1600 bits)
+- Steps
+    - Takes a Column from the state (columns 0-4, each column has 5 lanes and each lane has 64 bits)
+    - Store a column[x,z] by XORing the bit position z within the same column
+        - x = column number
+        - z = bit position (from 0 - 63)
+        - column[x,z] means column x at bit position z, it looks like a line with 5 bits, vertically
+    - Then, calculate parity of the same bit position of 2 other columns 
+        - Formula : D[x,z] = C[(x-1)mod5,z] XOR C[(x+1)mod5,(z-1)mod w]
+    - Get the output by XORing the original bit from the state WITH the parity D[x,y]
+    - A'[x,y,z] = A[x,y,z] XOR D[x,z]
+    - Meaning, we XOR every bit WITHIN the column WITH the same parity
+
+2. Rho : rotate each 64 bits lane by a fixed offset
+- Input = state array (1600 bits)
+- Steps
+    - Let A_out[0,0,z] = A_in[0,0,z], means lane (0,0) has offset r[0,0]=0 (no rotate)
+    - Before loop, let x = 1, y = 0 (to start from lane 1 instead of 0)
+    - Iterate from 0 to 23 (lane number)
+        - Compute offset for each lane by using the formula
+        - Offset = ((t-1)(t-2)/2) mod 64, while t = lane number
+        - Then, get A_out[x,y,z] = A[x,y, 64-Offset] -> the lane position gets shifted left by the Offset (bits rotation)
+
+3. Pi : lane repositioning. Moves each lane to new (x,y) locations
+- Input = state array (1600 bits)
+- Steps
+    - Loop within rows and cols (lane by lane)
+    - Apply formula A_out[x,y,z] = A_in[(x+3y)mod 5, x, z]
