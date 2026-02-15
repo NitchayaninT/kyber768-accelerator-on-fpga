@@ -62,8 +62,28 @@ module tb_decode_ct;
     repeat (2) @(posedge clk);
 
     $display("\n============= DECOMPRESS DONE =============");
+    /*
+    for (i = 0; i < 256; i++) begin
+      if (u[0][i] !== u0_ref[i]) begin
+        $display("MISMATCH u0[%0d]: got=%h exp=%h", i, u[0][i], u0_ref[i]);
+        $fatal(1);
+      end
+      if (u[1][i] !== u1_ref[i]) begin
+        $display("MISMATCH u1[%0d]: got=%h exp=%h", i, u[1][i], u1_ref[i]);
+        $fatal(1);
+      end
+      if (u[2][i] !== u2_ref[i]) begin
+        $display("MISMATCH u2[%0d]: got=%h exp=%h", i, u[2][i], u2_ref[i]);
+        $fatal(1);
+      end
+    end
 
-
+    for (i = 0; i < 256; i++) begin
+      if (v[i] !== v_ref[i]) begin
+        $display("MISMATCH v[%0d]: got=%h exp=%h", i, v[i], v_ref[i]);
+        $fatal(1);
+      end
+    */
     $finish;
   end
 
