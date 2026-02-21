@@ -28,8 +28,10 @@ module sha3_256 #(
     // - For 256-bit R: reverse across 32 bytes (in[255:0])
     // its reversed so that leftmost byte is absorbed first like in pythoon
     function automatic [7:0] get_msg_byte(input integer idx); //idx is from 0-max byte
-        begin
-            get_msg_byte = in[8*idx +: 8];
+        if (input_len == 14'd256) begin
+            get_msg_byte = in[255-8*idx -: 8];
+        end else begin
+            get_msg_byte = in[9471-8*idx -: 8];
         end
     endfunction
 
@@ -63,7 +65,6 @@ module sha3_256 #(
             end else begin
                 absorb_byte = 8'h00; 
             end
-
             // Domain seperation 
             // Apply SHA3 suffix (0x06) exactly at byte position msg_len_bytes (after the msg)
             // Do that after absorbing the whole message

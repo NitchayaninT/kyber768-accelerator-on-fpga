@@ -17,7 +17,13 @@ module shake128 #(
     // 260 bits = included domain
     // 272 bits = included matrix index (34 bytes like specified in kyber)
     wire [271:0] in_updated;
-    assign in_updated[255:0]   = in;
+    genvar b;
+    generate
+        for (b = 0; b < 32; b = b + 1) begin : REORDER // so that the left most bits will be read first
+            assign msg_bits[b*8 +: 8] = in[255-8*b -:8];
+        end
+    endgenerate
+    assign in_updated[255:0]   = msg_bits;
     assign in_updated[263:256] = index_i; //byte 32
     assign in_updated[271:264] = index_j; //byte 33 (last)
 

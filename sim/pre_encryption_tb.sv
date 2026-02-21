@@ -38,7 +38,9 @@ module pre_encryption_tb;
 initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, pre_encryption_tb);
-    $monitor("PM poly index : %d\n", pre_encryption_uut.pmg_uut.public_matrix_poly_index);
+    //$monitor("total byte index : %d, msg len bytes %d, absorb byte : %h",pre_encryption_uut.sha3_uut3.total_bytes_index,pre_encryption_uut.sha3_uut3.msg_len_bytes, pre_encryption_uut.sha3_uut3.absorb_byte);
+    //$monitor("phase : %d, rate_block: %h, state reg 512 : %h",pre_encryption_uut.sha3_uut3.phase,pre_encryption_uut.sha3_uut3.rate_block,  pre_encryption_uut.sha3_uut3.state_reg);
+    $monitor("shake enable : %d, coin = %h, noise stream = %h rate block = %h\n", pre_encryption_uut.ng_uut.shake_enable,pre_encryption_uut.ng_uut.coin,pre_encryption_uut.ng_uut.noise_stream,pre_encryption_uut.ng_uut.shake256_coin.rate_block);
     clk = 0;
     forever #(`DELAY / 2) clk = ~clk;
 end
@@ -65,7 +67,7 @@ initial begin
     $display("coin = %h", pre_encryption_uut.coin);
     $display("pre_k = %h", pre_encryption_uut.pre_k);
     $display("t0_first48bits = %h", pre_encryption_uut.t_vec[0][47:0]);
-
+    
 
     wait (valid == 1'b1);
 
