@@ -19,7 +19,7 @@ module shake256 #(
         if (input_len == 512) begin
             // KDF: use all 512 bits, no nonce
             for (i = 0; i < 512/8; i++) begin
-                rate_block[i*8 +: 8] = in[511-8*i -:8];
+                rate_block[i*8 +: 8] = in[8*i +:8];
                 //rate_block[8*i +: 8] = msg_bits[8*i +: 8];
             end
             // suffix after message

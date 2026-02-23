@@ -26,11 +26,17 @@ module sha3_256 #(
     // Function to get C python order
     // - For PK: reverse across 1184 bytes (in[9471:0])
     // - For 256-bit R: reverse across 32 bytes (in[255:0])
+    // - For post-encrypt, the input (ct) is already in the correct order, so no need to reverse
     // its reversed so that leftmost byte is absorbed first like in pythoon
     function automatic [7:0] get_msg_byte(input integer idx); //idx is from 0-max byte
         if (input_len == 14'd256) begin
             get_msg_byte = in[255-8*idx -: 8];
-        end else begin
+        end
+        else if(input_len == 14'd8704) begin
+            // get_msg_byte = in[8703-8*idx -: 8]; (to verify with C cuz reversing ct in c is a headeche)
+            get_msg_byte = in[8*idx +: 8];
+        end
+        else begin
             get_msg_byte = in[9471-8*idx -: 8];
         end
     endfunction

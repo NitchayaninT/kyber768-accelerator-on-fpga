@@ -21,6 +21,7 @@
 // 7. Generate noise polynomials e1,e2,r from coin and pre_k
 // Outputs : msg_poly, e1, e2, r, t_trans, a_t
 // #######################################
+// Recommendation, Public mat gen and noise gen should use BRAM 
 
 module pre_encryption (
     input clk,
@@ -119,7 +120,7 @@ end
 // 5. Decode PK to get seed (rho)
   decode_pk dpk_uut (
       .public_key(encryption_key),
-      .rho(rho),
+      .rho(rho), // this rho is still in reversed order due to pk's input, it will be reversed to the correct order in shake
       .t_trans(t_vec),
       .done(public_matrix_valid)
   );
