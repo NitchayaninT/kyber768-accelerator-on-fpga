@@ -1,3 +1,3 @@
-+incdir+/home/pakin/kyber/include
++incdir+include
 src/**/*.sv
 sim/**/*.sv

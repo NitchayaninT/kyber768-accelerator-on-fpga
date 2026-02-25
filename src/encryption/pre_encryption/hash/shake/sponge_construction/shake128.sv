@@ -4,34 +4,25 @@ module shake128 #(
     input               clk,
     input               enable,
     input               rst,
-    input  [255:0]      in,          // coins or seeds
-   // input  [3:0]        domain,      // domain separator 1111
+    input  [255:0]      in,          // seeds
     input  [7:0]        index_i,
     input  [7:0]        index_j,
     input  [13:0]       output_len,  // output length
     output reg [5375:0] output_string, // max 4*R bits
     output reg          done // done flag
 );
-    // Reorder per 8 bytes so that the bits in the byte are stored in little endian order
-    // Reorder bytes so that it absorbs left most byte as first byte like in python
+    // Absorb byte by byte
     wire [255:0] msg_bits;
-    genvar b;
-    generate
-        for (b = 0; b < 32; b = b + 1) begin : REORDER
-            // in python: first input byte is leftmost byte (in[255:248])
-            // in verilog : right most byte gets absorbed first
-            // Map that to msg_bits[7:0] so in verilog, the leftmost byte will get absorbed first like in python
-            assign msg_bits[b*8 +: 8] = in[255-8*b -:8];
-            // takes 8 bits starting at index b*8 going up by 8
-            // X[a -: 8] = X[a : a-7]
-            // X[a +: 8] = X[a : a+7]
-        end
-    endgenerate
-    
     // Step 0: added domain seperator
     // 260 bits = included domain
     // 272 bits = included matrix index (34 bytes like specified in kyber)
     wire [271:0] in_updated;
+    genvar b;
+    generate
+        for (b = 0; b < 32; b = b + 1) begin : REORDER // so that the left most bits will be read first
+            assign msg_bits[b*8 +: 8] = in[255-8*b -:8];
+        end
+    endgenerate
     assign in_updated[255:0]   = msg_bits;
     assign in_updated[263:256] = index_i; //byte 32
     assign in_updated[271:264] = index_j; //byte 33 (last)
@@ -115,7 +106,6 @@ module shake128 #(
                     end
                 end
 
-
                 // 1. Wait for permutation core to finish
                 // problem : it changes phase to PH_SQUEEZE, but doesnt permute, perm_valid never enables
                 PH_PERMUTE: begin
@@ -131,11 +121,8 @@ module shake128 #(
 
                 // 2. Squeeze up to 1344 bits from current state_reg
                 PH_SQUEEZE: begin
-                    // copy the next block of bits from the rate part of S
-                    for (i = 0; i < R; i = i + 1) begin
-                        if ((bits_squeezed + i) < output_len)
-                            output_string[bits_squeezed + i] <= state_reg[i];
-                    end 
+                    // directly assign state_reg to output string
+                    output_string[bits_squeezed +: R] <= state_reg[0 +: R];
                 // 3. After we've squeezed, keep track of the bits we've squeezed and continue with the next round if output len is more than 1344
                     // advance how many bits we've squeezed so far
                     if (output_len - bits_squeezed >= R)
@@ -171,5 +158,4 @@ module shake128 #(
             endcase
         end
     end
-
 endmodule

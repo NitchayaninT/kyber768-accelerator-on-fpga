@@ -134,8 +134,8 @@ module compress_encode_tb;
         $display("poly c1-%0d:", j);
         for (i = 0; i < 320; i++) begin
             byte_c1 = c1[j*320 + i];
-            $write("%02x ", byte_c1);
-            if ((i % 16) == 15) $write("\n");
+            $write("%02x", byte_c1);
+            //if ((i % 16) == 15) $write("\n");
         end
         $write("\n");
     end
@@ -145,9 +145,9 @@ module compress_encode_tb;
         for (i = 0; i < 128; i++) begin
             byte_c2 = c2[i];
             // low nibble = coeff[2*i], high nibble = coeff[2*i+1]
-            $write("%02x ", byte_c2);
+            $write("%02x", byte_c2);
             // print 16 coefficients per line -> 8 bytes per line
-            if ((i % 16) == 15) $write("\n");
+            //if ((i % 16) == 15) $write("\n");
         end
         $write("\n");
         $finish;

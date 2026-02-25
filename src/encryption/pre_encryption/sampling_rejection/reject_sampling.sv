@@ -5,7 +5,6 @@
 // coeff is a value from 0 - 3328
 // Input : byte stream of 672 bytes (5376 bits)
 // Output : 16 x 256 (4096 bits) poly. each coeff is 12 bits BUT stored in 16 bits form
-`timescale 1ns / 1ps
 module reject_sampling #(
     parameter int N  = 256,
     parameter int Q = 3329,
@@ -33,15 +32,6 @@ module reject_sampling #(
     endfunction
 
     localparam integer coeff_width = 16; // each coeff stored in 16 bits
-
-    // Reorder bytes
-    wire [5375:0] msg_bits;
-    genvar b;
-    generate
-        for (b = 0; b < 672; b = b + 1) begin : REORDER
-            assign msg_bits[b*8 +: 8] = byte_stream[5375-8*b -:8];
-        end
-    endgenerate
 
    always_ff @(posedge clk or posedge rst) begin
         if (rst) begin

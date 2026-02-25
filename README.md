@@ -1,58 +1,48 @@
-# Post-Quantum Cryptography Accelerator on FPGA
-This undergraduate senior project focuses on accelerating key operations in KyberKEM, a lattice-based post-quantum cryptographic scheme on FPGA. 
+# Kyber768 Cryptography Accelerator on FPGA
+This undergraduate senior project implements and accelerates **Kyber768**, a lattice-based post-quantum Key Encapsulation Mechanism (KEM) selected by NIST, using FPGA hardware
 
-Goal : Implement and optimize cryptographic modules using FPGA hardware to achieve faster and more energy-efficient computation 
-
+The system is written in **SystemVerilog** and deployed on the **Arty S7-50 FPGA board**. It focuses on accelerating core cryptographic operations like encryption and decryption
+## Goals 
+- Implement Kyber768 cryptographic primitives in hardware
+- Optimize latency and throughput
+- Analyze FPGA resource utilization
 ## What is KyberKEM?
 Kyber is a post-quantum key exchange mechanism.
-Its purpose is to allow two parties to securely agree on a shared secret key, even in the presence of a future quantum computer.
+Its purpose is to allow two parties to securely agree on a shared secret key, even in the presence of a future quantum computer. Kyber is designed to be secure against quantum attacks.
 
 Kyber does not encrypt data directly.
 Instead, it is used to establish a shared secret, which can then be used with fast symmetric encryption (e.g., AES) to protect communication.
+## Kyber768 Encryption & Decryption Flowchart
+
+![Kyber768 Flowchart](Kyber768_Flowchart.png)
 
 ## Operations
-- Key Generation (Simulated)
-
-    One party generates:
-    - a public key 
-    - a secret key (kept private)
-- Encapculation 
-
-    The other party uses the public key to:
-    - generate a random shared secret
-    - encrypt (encapsulate) it into a ciphertext
-- Decapsulation
-
-    The first party uses its secret key to:
-    - recover the same "shared secret" from the ciphertext
-
-## Why Kyber?
-- It is designed to be secure against quantum attacks
-- Efficient and suitable for hardware acceleration
-- Standardized by NIST as a post-quantum key encapsulation mechanism
-
-## Hardware Modules
-### Encapsulation
-- Pre/Post Indcpa Encryption
-- Decode PK
-- Decode Decompress Msg
-- Hash (SHAKE128)
-- Sampling Rejection, CBD
-- Compress Encode
-
-### Main Computation
-- NTT (Number theoretic transform)
-- Addition
-- PACC
-- INTT
-- Subtraction
-- Reduce
-
-### Decapsulation
-- Pre/Post Indcpa Decryption
-- Decode Decompress Ct
-- Decode Decompress sk
-- Compress Encode
+### Key Generation (Simulated)
+- Results :
+    - Public key 
+    - Secret key (kept private)
+### Encryption (Encapsulation)
+- Generates a random shared secret
+- Encrypt (encapsulate) the message using public key and noise into a ciphertext
+### Decryption (Decapsulation)
+- Uses its secret key to recover the **"shared secret"** from the ciphertext
+- Compare if the result of the shared secret is the same as the sender's shared secret
+- **Result** : Secure communication between 2 parties against future quantum attacks
+## Modules
+### - Pre_Encryption
+### - Pre-Decryption
+### - Addition
+### - NTT
+### - Pointwise Montgomery Multiplication
+### - INVNTT
+### - Reduce
+- Modes : Encryption, Decryption
+### - Subtraction
+### - Compress Encode
+- **Encryption** : Compress ciphertext to get ciphertext with lower coefficient bits
+- **Decryption** : Compress Polynomial back to plain text message
+### - Post-Encryption
+### - Post-Decryption
 
 ## Group members
 ### 1.Pakin Panawattanakul

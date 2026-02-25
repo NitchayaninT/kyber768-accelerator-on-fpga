@@ -5,14 +5,12 @@ and use cbd to generate noise polynomials*/
 // poly count 0-2 =  r
 // poly count 3-5 = e1
 // poly count 6 = e2 */
-`timescale 1ns / 1ps
 module noise_gen(
     input clk,
     input rst,
     input enable,
     input [255:0] coin,
     output reg noise_done,
-    //output reg [4095:0] noise_poly_out,
     output reg [15:0] r [0:2][0:255],
     output reg [15:0] e1 [0:2][0:255],
     output reg [15:0] e2 [0:255]
@@ -34,6 +32,7 @@ module noise_gen(
         .enable(shake_enable),
         .rst(rst),
         .in(coin),
+        .input_len(256),
         .nonce(nonce), // to make the output different even if using the same seed
         .output_len(14'd1024), // output length 1024 bits
         .output_string(noise_stream),

@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+
 /* SHA3-512 sponge wrapper (Keccak-f[1600]) */
 /* capacity c = 1024, rate r = 576(72 bytes) */
 /* output = 512 bits. 256 for coins, 256 for pre-k */
@@ -23,12 +23,8 @@ module sha3_512 #(
     // SHA3 padding suffix byte (SHA3 uses 0x06)
     localparam [7:0] SHA3_SUFFIX = 8'h06; // 101 -> gets from 0x06 + pad 1
 
-    // Function to get python order (reverse bytes for absorption, will remove if real testing)
-    // its reversed so that leftmost byte is absorbed first like in python
-    function automatic [7:0] get_msg_byte(input integer idx); //idx is from 0-max byte from the input
-        begin
-            get_msg_byte = in[511-8*idx -: 8];
-        end
+    function automatic [7:0] get_msg_byte(input integer idx);
+        get_msg_byte = in[8*idx +: 8];
     endfunction
 
     // Calculate number of absorption blocks:
@@ -48,47 +44,23 @@ module sha3_512 #(
     reg [7:0]  absorb_byte;
     reg [7:0]  absorb_idx; // absorbed BLOCK index (0 to num_blocks-1)
 
-    always @* begin
-        rate_block = {R{1'b0}}; //576 bits zero
-        for (j = 0; j < RATE_BYTES; j = j + 1) begin // stops absorbing when it exceeds the rate byte (1088/8 bytes)
-            total_bytes_index = absorb_idx * RATE_BYTES + j; // start from 0 until it stops absorbing
-            // it iterates every block until all blocks absorbed. 
-            // total_bytes_index keeps track of the byte index of the whole message, not per block 
-            // Since one block only equals to 1088/8 = 136 bytes, its not enough for PK to be absorbed
+    always_comb begin
+    rate_block = '0;
+        for (j = 0; j < RATE_BYTES; j++) begin
+            int unsigned t = absorb_idx * RATE_BYTES + j;
+            byte b = 8'h00;
 
-            // Base byte from message if within length, else 0
-            // msg_len_bytes = 256/8 = 32 or 9472/8 = 1184
-            if (total_bytes_index < msg_len_bytes) begin
-                // absorb byte by byte from input msg
-                absorb_byte = get_msg_byte(total_bytes_index); // call function to get python order
-                // eg : first byte (rightmost, byte index 0) is now at leftmost position (matches python)
-                // the function returns the leftmost byte IF total_bytes_index = 0
-                // so that the leftmost byte gets absorbed FIRST like in python
-                // it is absorbed at the end of the always loop
-            end else begin
-                absorb_byte = 8'h00; 
-            end
+            if (t < msg_len_bytes)
+            b = get_msg_byte(t);   
 
-            // Domain seperation 
-            // Apply SHA3 suffix (0x06) exactly at byte position msg_len_bytes (after the msg)
-            // Do that after absorbing the whole message
-            
-            if (total_bytes_index == msg_len_bytes) begin // if its at byte 32 or 1184 (finished absorbing)
-                absorb_byte = absorb_byte ^ SHA3_SUFFIX; // xor 0x06 into that byte
-            end
+            if (t == msg_len_bytes)
+            b ^= SHA3_SUFFIX;
 
-            // Padding
-            // (standard: last byte OR= 0x80)
-            // if its the LAST BYTE of the LAST BLOCK, pad 1 at the end
-            if ((absorb_idx == last_block) && (j == RATE_BYTES-1)) begin
-                absorb_byte = absorb_byte | 8'h80;
-            end
-
-            // Place byte into rate_block, byte 0 -> bits [7:0]
-            // leftmost byte gets absorbed first!
-            rate_block[8*j +: 8] = absorb_byte; // do this until finish absorbing (after its at 1088/8 byte )
+            if ((absorb_idx == last_block) && (j == RATE_BYTES-1))
+            b |= 8'h80;
+            rate_block[8*j +: 8] = b;
         end
-    end 
+    end
 
     // Keccak state + permutation
     reg  [1599:0] state_reg;

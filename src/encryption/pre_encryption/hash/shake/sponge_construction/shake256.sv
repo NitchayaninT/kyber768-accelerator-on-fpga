@@ -1,53 +1,51 @@
-`timescale 1ns / 1ps
 module shake256 #(
     parameter integer R = 1088 // rate in SHAKE256
 )(
     input               clk,
     input               enable,
     input               rst,
-    input  [255:0]      in,          // coins
+    input  [511:0]      in,          // coins
+    input  integer      input_len,
     input  [7:0]        nonce,       // 1 byte input
     input  [13:0]       output_len,  // output length
     output reg [1023:0] output_string, // max 4*R bits
     output reg          done // done flag
 );
+    logic [R-1:0] rate_block;    
+    integer i;
+    always @* begin
+        rate_block = '0;
 
-    // Reorder bytes so that it absorbs left most byte as first byte like in python
-    wire [255:0] msg_bits;
-    genvar b;
-    generate
-        for (b = 0; b < 32; b = b + 1) begin : REORDER
-            assign msg_bits[b*8 +: 8] = in[255-8*b -:8];
+        if (input_len == 512) begin
+            // KDF: use all 512 bits, no nonce
+            for (i = 0; i < 512/8; i++) begin
+                rate_block[i*8 +: 8] = in[8*i +:8];
+                //rate_block[8*i +: 8] = msg_bits[8*i +: 8];
+            end
+            // suffix after message
+            rate_block[512 +: 8] = rate_block[512 +: 8] ^ 8'h1F;
         end
-    endgenerate
-    
-    // Step 0: added domain seperator
-    wire [263:0] in_updated;
-    assign in_updated[255:0]   = msg_bits;
-    assign in_updated[263:256] = nonce;
+        else begin
+            // coins case: use input_len bits from in (usually 256)
+             for (i = 0; i < 256/8; i++) begin
+                rate_block[8*i +: 8] = in[8*i +:8];
+            end
+            // append nonce right after message bits
+            rate_block[input_len +: 8] = nonce;
 
-    wire [R-1:0] rate_block;
-    assign rate_block = {{(R-264){1'b0}}, in_updated};
-
-    // Step 1 : padding
-    wire [R-1:0] padded_mask;
-    padding #(
-        .R(R)
-    ) pad_inst (
-        .input_len(11'd264), // input length in integer (260)
-        .suffix(8'h1F),
-        .block_out(padded_mask)
-    );
-
-    // apply pad mask to get padded block
-    wire [R-1:0] padded_block = padded_mask | rate_block;
+            // suffix after message+nonce
+            rate_block[(input_len+8) +: 8] = rate_block[(input_len+8) +: 8] ^ 8'h1F;
+        end
+        // pad10*1: final bit of the rate
+        rate_block[R-1] = 1'b1;
+    end
 
     // calculate capacity bits 
     localparam integer C = 1600 - R;
 
-    // Step 2 : Absorbion (only once in this case)
+    // Step 2 : Absorption (only once in this case)
     wire [1599:0] absorbed_block;
-    assign absorbed_block = {{C{1'b0}}, padded_block};
+    assign absorbed_block = {{C{1'b0}}, rate_block};
 
     // Step 3: Permutation core under FSM control
     // Step 3.1 : Permute once
@@ -77,8 +75,6 @@ module shake256 #(
         .state_out(perm_out),
         .valid    (perm_valid)
     );
-
-    integer i;
 
     always @(posedge clk or posedge rst) begin
         if (rst) begin
@@ -119,10 +115,7 @@ module shake256 #(
                 // 2. Squeeze up to 1344 bits from current state_reg
                 PH_SQUEEZE: begin
                     // copy the next block of bits from the rate part of S
-                    for (i = 0; i < R; i = i + 1) begin
-                        if ((bits_squeezed + i) < output_len)
-                            output_string[bits_squeezed + i] <= state_reg[i];
-                    end 
+                    output_string[bits_squeezed +: R] <= state_reg[0 +: R];
                 // 3. After we've squeezed, keep track of the bits we've squeezed and continue with the next round if output len is more than 1344
                     // advance how many bits we've squeezed so far
                     if (output_len - bits_squeezed >= R)

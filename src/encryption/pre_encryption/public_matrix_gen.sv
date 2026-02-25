@@ -4,7 +4,7 @@
 // Coins 256 bits -> SHAKE128 -> 1024 bits noise -> CBD -> polynomial of degree 256 with coeffs in [-2,2]
 // public mat poly index = i*k + j (k=3 in kyber 768)
 // noise poly index = just 0 + j
-`timescale 1ns / 1ps
+
 module public_matrix_gen(
     input clk,
     input rst,

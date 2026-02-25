@@ -14,4 +14,4 @@ def gen_ram16():
         print(f"{num:04x}")
 
 
-gen_ram16()
+gen_ram32()

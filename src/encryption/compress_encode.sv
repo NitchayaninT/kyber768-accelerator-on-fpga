@@ -9,7 +9,6 @@ Description : Compress ciphertext using rounded function
     - Compress u to 10 bits per coef -> c1
     - Compress v to 4 bits per coef -> c2
 */
-`timescale 1ns / 1ps
 
 module compress_encode #(
     parameter int Q = 3329

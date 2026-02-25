@@ -4,7 +4,6 @@
 // Input : noise char 1024 bits
 // Output : polynomial of degree 256 with coeffs in [-2,2]
 // expected output : e,f,0,1,2
-`timescale 1ns / 1ps
 module cbd
 (
     input clk,
