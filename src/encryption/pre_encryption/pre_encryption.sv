@@ -9,7 +9,11 @@
 // 3. decode_pk
 // 4. decode_msg
 // 5. public_matrix_gen
+//   5.1 shake128
+//   5.2 rejection sampling
 // 6. noise_gen
+//   6.1 shake256
+//   6.2 cbd
 // #######################################
 // -- STEPS --
 // 1. Hash random input r_in to get msg
@@ -21,7 +25,11 @@
 // 7. Generate noise polynomials e1,e2,r from coin and pre_k
 // Outputs : msg_poly, e1, e2, r, t_trans, a_t
 // #######################################
-// Recommendation, Public mat gen and noise gen should use BRAM 
+// Optimization
+// 1. Can we just create one shared Keccak 1600 for SHA256,512, SHAKE128, SHAKE256 in order to reduce LUTs?
+//  #######################################
+// -- FSM --
+// IDLE -> HASH_RIN -> HASH_PK -> HASH_BUF0 -> GEN_PUBLIC_MAT -> GEN_NOISE
 
 module pre_encryption (
     input clk,
@@ -79,7 +87,7 @@ module pre_encryption (
       .done(sha3_valid[1])
   );
 
-// 2.5 Concatenate hash(ek) || msg. msg is at higher bits
+// 2.5 Concatenate hash(ek) || msg
 always_comb begin
   sha512_valid = sha3_valid[0] & sha3_valid[1];
   if (sha512_valid) buf0 = {hash_ek, msg};
