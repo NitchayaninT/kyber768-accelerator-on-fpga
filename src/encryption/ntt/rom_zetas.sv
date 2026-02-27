@@ -1,19 +1,22 @@
 // Single-Port Block RAM No-Change Mode
 // File: rams_sp_nc.v
-
-module rom_zetas(
+import params_pkg::*;
+module rom_zetas (
     input clk,
-    input [6:0] addr,
-    output reg signed [15 :0] dout
+    input [MC_ZETA_ADDR_BITS - 1:0] addra,
+    input [MC_ZETA_ADDR_BITS - 1:0] addrb,
+    output logic signed [KYBER_POLY_WIDTH - 1:0] douta,
+    output logic signed [KYBER_POLY_WIDTH - 1:0] doutb
 );
 
-  reg signed [15:0] RAM [128];
+  logic signed [KYBER_POLY_WIDTH - 1:0] RAM[128];
 
   initial begin
-    $readmemh("rom_zetas.mem",RAM);
+    $readmemh("rom_zetas.mem", RAM);
   end
 
   always @(posedge clk) begin
-    dout <= RAM [addr];
+    douta <= RAM[addra];
+    doutb <= RAM[addrb];
   end
 endmodule
