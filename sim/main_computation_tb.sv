@@ -13,6 +13,9 @@ module main_computation_tb;
   logic [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1];
   logic [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3];
 
+  logic signed [KYBER_POLY_WIDTH-1:0] u[0:KYBER_K-1][0:KYBER_N-1];
+  logic signed [KYBER_POLY_WIDTH-1:0] v[0:KYBER_N-1];
+
   logic [KYBER_POLY_WIDTH - 1:0] t_vec_transform[KYBER_K][KYBER_N];
   genvar i, j;
   generate
@@ -31,6 +34,8 @@ module main_computation_tb;
       .mode  (mode),
       .a_t   (a_t),
       .r     (r),
+      .u     (u),
+      .v     (v),
       .t_vec (t_vec),
       .valid (valid)
   );
@@ -110,30 +115,21 @@ module main_computation_tb;
     wait (main_computation.ntt_done);
     fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/ntt0.hex", "w");
     for (index = 0; index < 128; index++) begin
-      $display("index%d : %0d", (index * 2), main_computation.g_bram[12].rams_dp.RAM[index][15:0]);
       $fdisplay(fd, "%h", main_computation.g_bram[12].rams_dp.RAM[index][15:0]);
-      $display("index%d : %0d", (index * 2 + 1),
-               main_computation.g_bram[12].rams_dp.RAM[index][31:16]);
       $fdisplay(fd, "%h", main_computation.g_bram[12].rams_dp.RAM[index][31:16]);
     end
     $fclose(fd);
 
     fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/ntt1.hex", "w");
     for (index = 0; index < 128; index++) begin
-      $display("index%d : %0d", (index * 2), main_computation.g_bram[13].rams_dp.RAM[index][15:0]);
       $fdisplay(fd, "%h", main_computation.g_bram[13].rams_dp.RAM[index][15:0]);
-      $display("index%d : %0d", (index * 2 + 1),
-               main_computation.g_bram[13].rams_dp.RAM[index][31:16]);
       $fdisplay(fd, "%h", main_computation.g_bram[13].rams_dp.RAM[index][31:16]);
     end
     $fclose(fd);
 
     fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/ntt2.hex", "w");
     for (index = 0; index < 128; index++) begin
-      $display("index%d : %0d", (index * 2), main_computation.g_bram[14].rams_dp.RAM[index][15:0]);
       $fdisplay(fd, "%h", main_computation.g_bram[14].rams_dp.RAM[index][15:0]);
-      $display("index%d : %0d", (index * 2 + 1),
-               main_computation.g_bram[14].rams_dp.RAM[index][31:16]);
       $fdisplay(fd, "%h", main_computation.g_bram[14].rams_dp.RAM[index][31:16]);
     end
     $fclose(fd);
@@ -141,88 +137,87 @@ module main_computation_tb;
     #10 wait (main_computation.pvbm_done);
     fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/pvbm_at0.hex", "w");
     for (index = 0; index < 128; index++) begin
-      $display("index%d : %0d", (index * 2), main_computation.g_bram[0].rams_dp.RAM[index][15:0]);
       $fdisplay(fd, "%h", main_computation.g_bram[0].rams_dp.RAM[index][15:0]);
-      $display("index%d : %0d", (index * 2 + 1),
-               main_computation.g_bram[0].rams_dp.RAM[index][31:16]);
       $fdisplay(fd, "%h", main_computation.g_bram[0].rams_dp.RAM[index][31:16]);
     end
     $fclose(fd);
 
     fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/pvbm_at1.hex", "w");
     for (index = 0; index < 128; index++) begin
-      $display("index%d : %0d", (index * 2), main_computation.g_bram[3].rams_dp.RAM[index][15:0]);
       $fdisplay(fd, "%h", main_computation.g_bram[3].rams_dp.RAM[index][15:0]);
-      $display("index%d : %0d", (index * 2 + 1),
-               main_computation.g_bram[3].rams_dp.RAM[index][31:16]);
       $fdisplay(fd, "%h", main_computation.g_bram[3].rams_dp.RAM[index][31:16]);
     end
     $fclose(fd);
 
     fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/pvbm_at2.hex", "w");
     for (index = 0; index < 128; index++) begin
-      $display("index%d : %0d", (index * 2), main_computation.g_bram[6].rams_dp.RAM[index][15:0]);
       $fdisplay(fd, "%h", main_computation.g_bram[6].rams_dp.RAM[index][15:0]);
-      $display("index%d : %0d", (index * 2 + 1),
-               main_computation.g_bram[6].rams_dp.RAM[index][31:16]);
       $fdisplay(fd, "%h", main_computation.g_bram[6].rams_dp.RAM[index][31:16]);
     end
     $fclose(fd);
 
     fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/pvbm_tvec.hex", "w");
     for (index = 0; index < 128; index++) begin
-      $display("index%d : %0d", (index * 2), main_computation.g_bram[9].rams_dp.RAM[index][15:0]);
       $fdisplay(fd, "%h", main_computation.g_bram[9].rams_dp.RAM[index][15:0]);
-      $display("index%d : %0d", (index * 2 + 1),
-               main_computation.g_bram[9].rams_dp.RAM[index][31:16]);
       $fdisplay(fd, "%h", main_computation.g_bram[9].rams_dp.RAM[index][31:16]);
-      $display("done");
     end
     $fclose(fd);
     #10
     wait (main_computation.inv_ntt_done) begin
       fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/inv_ntt_at0.hex", "w");
       for (index = 0; index < 128; index++) begin
-        $display("index%d : %0d", (index * 2), main_computation.g_bram[0].rams_dp.RAM[index][15:0]);
         $fdisplay(fd, "%h", main_computation.g_bram[0].rams_dp.RAM[index][15:0]);
-        $display("index%d : %0d", (index * 2 + 1),
-                 main_computation.g_bram[0].rams_dp.RAM[index][31:16]);
         $fdisplay(fd, "%h", main_computation.g_bram[0].rams_dp.RAM[index][31:16]);
       end
       $fclose(fd);
 
       fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/inv_ntt_at1.hex", "w");
       for (index = 0; index < 128; index++) begin
-        $display("index%d : %0d", (index * 2), main_computation.g_bram[3].rams_dp.RAM[index][15:0]);
         $fdisplay(fd, "%h", main_computation.g_bram[3].rams_dp.RAM[index][15:0]);
-        $display("index%d : %0d", (index * 2 + 1),
-                 main_computation.g_bram[3].rams_dp.RAM[index][31:16]);
         $fdisplay(fd, "%h", main_computation.g_bram[3].rams_dp.RAM[index][31:16]);
       end
       $fclose(fd);
 
       fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/inv_ntt_at2.hex", "w");
       for (index = 0; index < 128; index++) begin
-        $display("index%d : %0d", (index * 2), main_computation.g_bram[6].rams_dp.RAM[index][15:0]);
         $fdisplay(fd, "%h", main_computation.g_bram[6].rams_dp.RAM[index][15:0]);
-        $display("index%d : %0d", (index * 2 + 1),
-                 main_computation.g_bram[6].rams_dp.RAM[index][31:16]);
         $fdisplay(fd, "%h", main_computation.g_bram[6].rams_dp.RAM[index][31:16]);
       end
       $fclose(fd);
 
       fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/inv_ntt_tvec.hex", "w");
       for (index = 0; index < 128; index++) begin
-        $display("index%d : %0d", (index * 2), main_computation.g_bram[9].rams_dp.RAM[index][15:0]);
         $fdisplay(fd, "%h", main_computation.g_bram[9].rams_dp.RAM[index][15:0]);
-        $display("index%d : %0d", (index * 2 + 1),
-                 main_computation.g_bram[9].rams_dp.RAM[index][31:16]);
         $fdisplay(fd, "%h", main_computation.g_bram[9].rams_dp.RAM[index][31:16]);
-        $display("done");
       end
       $fclose(fd);
     end
 
-    #10 $finish;
+    #10 fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/u0.hex", "w");
+    for (index = 0; index < 256; index++) begin
+      $fdisplay(fd, "%h", u[0][index]);
+    end
+    $fclose(fd);
+
+    fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/u1.hex", "w");
+    for (index = 0; index < 256; index++) begin
+      $fdisplay(fd, "%h", u[1][index]);
+    end
+    $fclose(fd);
+
+    fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/u2.hex", "w");
+    for (index = 0; index < 256; index++) begin
+      $fdisplay(fd, "%h", u[2][index]);
+    end
+    $fclose(fd);
+
+    fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/v.hex", "w");
+    for (index = 0; index < 256; index++) begin
+      $fdisplay(fd, "%h", v[index]);
+    end
+    $fclose(fd);
+    $display("done");
+    #20 $finish;
   end
+
 endmodule

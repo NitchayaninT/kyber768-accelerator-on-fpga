@@ -7,8 +7,14 @@
 import params_pkg::*;
 import enums_pkg::*;
 
+`ifndef HIGHER_BITS
 `define HIGHER_BITS 31:16
+`endif
+
+`ifndef LOWER_BITS
 `define LOWER_BITS 15:0
+`endif
+
 typedef enum {
   NTT_IDLE,
   NTT_READ_INPUT,  // read 4 times to get input variable

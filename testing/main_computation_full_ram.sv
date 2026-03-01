@@ -53,18 +53,18 @@ typedef enum logic [2:0] {
 // 1. a_t   -> BRAM 0-8
 // 2. t_vec -> BRAM 9-11
 // 3. r     -> BRAM 12-14
-module main_computation (
+(* DONT_TOUCH = "yes" *)
+module main_computation_fullram (
     input clk,
     input enable,
     input reset,
+
     input main_compute_mode_e mode,  // 0 = enc, 1 = dec
     input [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1],
     input [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1],
     input [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3],
 
     // output signal for compatibilty with other module passing netlist
-    output logic signed [KYBER_POLY_WIDTH-1:0] u[0:KYBER_K-1][0:KYBER_N-1],
-    output logic signed [KYBER_POLY_WIDTH-1:0] v[0:KYBER_N-1],
     output logic valid
 );
 
@@ -731,51 +731,7 @@ module main_computation (
   end
 
   // TODO : this is temporary fix for sending output as net
-  logic [7:0] wo_addra[2];
-  logic [7:0] wo_addrb[2];
-  assign wo_addra[0] = (current_state == MC_INV_NTT) ? (inv_ntt_ram_addra << 1) : 0;
-  assign wo_addra[1] = (current_state == MC_INV_NTT) ? (inv_ntt_ram_addra << 1) + 1 : 0;
-  assign wo_addrb[0] = (current_state == MC_INV_NTT) ? (inv_ntt_ram_addrb << 1) : 0;
-  assign wo_addrb[1] = (current_state == MC_INV_NTT) ? (inv_ntt_ram_addrb << 1) + 1 : 0;
   always_ff @(posedge clk) begin
     inv_ntt_current_state <= inv_ntt_next_state;
-    if (ntt_dut.last_stage == 1)
-      unique case (inv_ntt_current_state)
-        MC_INV_NTT_IDLE: ;
-        MC_INV_NTT_AT0: begin
-          if (ntt_ram_we_predec) begin
-            u[0][wo_addra[0]] = $signed(inv_ntt_ram_dina[`LOWER_BITS]);
-            u[0][wo_addra[1]] = $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
-            u[0][wo_addrb[0]] = $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
-            u[0][wo_addrb[1]] = $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
-
-          end
-        end
-        MC_INV_NTT_AT1: begin
-          if (ntt_ram_we_predec) begin
-            u[1][wo_addra[0]] = $signed(inv_ntt_ram_dina[`LOWER_BITS]);
-            u[1][wo_addra[1]] = $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
-            u[1][wo_addrb[0]] = $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
-            u[1][wo_addrb[1]] = $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
-          end
-        end
-        MC_INV_NTT_AT2: begin
-          if (ntt_ram_we_predec) begin
-            u[2][wo_addra[0]] = $signed(inv_ntt_ram_dina[`LOWER_BITS]);
-            u[2][wo_addra[1]] = $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
-            u[2][wo_addrb[0]] = $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
-            u[2][wo_addrb[1]] = $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
-          end
-        end
-        MC_INV_NTT_TVEC: begin
-          if (ntt_ram_we_predec) begin
-            v[wo_addra[0]] = $signed(inv_ntt_ram_dina[`LOWER_BITS]);
-            v[wo_addra[1]] = $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
-            v[wo_addrb[0]] = $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
-            v[wo_addrb[1]] = $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
-          end
-        end
-        MC_INV_NTT_DONE: ;
-      endcase
   end
 endmodule
