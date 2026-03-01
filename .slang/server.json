@@ -1,5 +1,5 @@
 {
-  "flags": "-f .slang/slang-server.f",
+  "flags": "-f /home/pakin/kyber/.slang/slang-server.f",
   "index": [
     {
       "dirs": ["src", "sim", "testing"],
