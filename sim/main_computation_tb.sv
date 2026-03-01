@@ -179,7 +179,50 @@ module main_computation_tb;
       $display("done");
     end
     $fclose(fd);
-    #10;
-    $finish;
+    #10
+    wait (main_computation.inv_ntt_done) begin
+      fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/inv_ntt_at0.hex", "w");
+      for (index = 0; index < 128; index++) begin
+        $display("index%d : %0d", (index * 2), main_computation.g_bram[0].rams_dp.RAM[index][15:0]);
+        $fdisplay(fd, "%h", main_computation.g_bram[0].rams_dp.RAM[index][15:0]);
+        $display("index%d : %0d", (index * 2 + 1),
+                 main_computation.g_bram[0].rams_dp.RAM[index][31:16]);
+        $fdisplay(fd, "%h", main_computation.g_bram[0].rams_dp.RAM[index][31:16]);
+      end
+      $fclose(fd);
+
+      fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/inv_ntt_at1.hex", "w");
+      for (index = 0; index < 128; index++) begin
+        $display("index%d : %0d", (index * 2), main_computation.g_bram[3].rams_dp.RAM[index][15:0]);
+        $fdisplay(fd, "%h", main_computation.g_bram[3].rams_dp.RAM[index][15:0]);
+        $display("index%d : %0d", (index * 2 + 1),
+                 main_computation.g_bram[3].rams_dp.RAM[index][31:16]);
+        $fdisplay(fd, "%h", main_computation.g_bram[3].rams_dp.RAM[index][31:16]);
+      end
+      $fclose(fd);
+
+      fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/inv_ntt_at2.hex", "w");
+      for (index = 0; index < 128; index++) begin
+        $display("index%d : %0d", (index * 2), main_computation.g_bram[6].rams_dp.RAM[index][15:0]);
+        $fdisplay(fd, "%h", main_computation.g_bram[6].rams_dp.RAM[index][15:0]);
+        $display("index%d : %0d", (index * 2 + 1),
+                 main_computation.g_bram[6].rams_dp.RAM[index][31:16]);
+        $fdisplay(fd, "%h", main_computation.g_bram[6].rams_dp.RAM[index][31:16]);
+      end
+      $fclose(fd);
+
+      fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/inv_ntt_tvec.hex", "w");
+      for (index = 0; index < 128; index++) begin
+        $display("index%d : %0d", (index * 2), main_computation.g_bram[9].rams_dp.RAM[index][15:0]);
+        $fdisplay(fd, "%h", main_computation.g_bram[9].rams_dp.RAM[index][15:0]);
+        $display("index%d : %0d", (index * 2 + 1),
+                 main_computation.g_bram[9].rams_dp.RAM[index][31:16]);
+        $fdisplay(fd, "%h", main_computation.g_bram[9].rams_dp.RAM[index][31:16]);
+        $display("done");
+      end
+      $fclose(fd);
+    end
+
+    #10 $finish;
   end
 endmodule

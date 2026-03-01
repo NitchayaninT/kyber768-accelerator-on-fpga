@@ -7,7 +7,7 @@ module fqmul (
     output valid
 );
 
-  reg signed [31:0] mul;
+  logic signed [31:0] mul;
   reg [2:0] count;
   assign valid = (count == 3);
   // cycle0 :start -> count = 0 and compute a*b

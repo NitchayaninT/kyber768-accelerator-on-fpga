@@ -5,7 +5,8 @@ package enums_pkg;
     MC_LOAD_RAM,
     MC_NTT,
     MC_POLYVEC_BASEMUL,
-    MC_INV_NTT
+    MC_INV_NTT,
+    MC_WRITE_OUT
   } main_compute_state_e;
 
   typedef enum logic {
