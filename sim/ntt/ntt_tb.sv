@@ -101,8 +101,24 @@ module ntt_tb;
         $fdisplay(fd, "%h", rams_dp.RAM[i][31:16]);
       end
       $fclose(fd);
-      #20 $finish;
     end
+    #200 mode <= INV_NTT;
+    $readmemh("pvbm_at0_32bits.hex", rams_dp.RAM);
+    #2 enable <= 1;
+    #2 enable <= 0;
+
+    wait (valid == 1) begin
+      fd = $fopen("/home/pakin/kyber/data/test_result/inv_ntt.hex", "w");
+      for (i = 0; i < 128; i++) begin
+        // lower index first
+        $display("index%d : %0d", (i * 2), rams_dp.RAM[i][15:0]);
+        $fdisplay(fd, "%h", rams_dp.RAM[i][15:0]);
+        $display("index%d : %0d", (i * 2 + 1), rams_dp.RAM[i][31:16]);
+        $fdisplay(fd, "%h", rams_dp.RAM[i][31:16]);
+      end
+      $fclose(fd);
+    end
+    #20 $finish;
   end
 
 endmodule

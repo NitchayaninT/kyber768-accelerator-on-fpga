@@ -80,22 +80,22 @@ module polyvec_basemul_montgomery (
   assign ram_write_data_b = {barrett_r1[1], barrett_r1[0]};
 
   wand  barrett_valid;
-  logic barrett_start;
+  logic barrett_enable;
   generate
     for (g = 0; g < 2; g++) begin : g_barrett
       barrett_reduce barrett_red_sum_b0 (
-          .clk  (clk),
-          .start(barrett_start),
-          .a    (sum_basemul0_r[g]),
-          .r    (barrett_r0[g]),
-          .valid(barrett_valid)
+          .clk   (clk),
+          .enable(barrett_enable),
+          .a     (sum_basemul0_r[g]),
+          .r     (barrett_r0[g]),
+          .valid (barrett_valid)
       );
       barrett_reduce barrett_red_sum_b1 (
-          .clk  (clk),
-          .start(barrett_start),
-          .a    (sum_basemul1_r[g]),
-          .r    (barrett_r1[g]),
-          .valid(barrett_valid)
+          .clk   (clk),
+          .enable(barrett_enable),
+          .a     (sum_basemul1_r[g]),
+          .r     (barrett_r1[g]),
+          .valid (barrett_valid)
       );
     end
   endgenerate
@@ -131,7 +131,7 @@ module polyvec_basemul_montgomery (
 
     basemul_start = 0;
     // BARRETT
-    barrett_start = 0;
+    barrett_enable = 0;
 
     case (current_state)
       PVBM_IDLE: begin
@@ -148,7 +148,7 @@ module polyvec_basemul_montgomery (
 
       PVBM_COMPUTE_BASEMUL: begin
         if (basemul_valid) begin
-          barrett_start = 1;
+          barrett_enable = 1;
           next_state = PVBM_BARRETT_REDUCE;
         end else next_state = PVBM_COMPUTE_BASEMUL;
       end

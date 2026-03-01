@@ -18,11 +18,20 @@ typedef enum logic [1:0] {
 
 typedef enum logic [2:0] {
   MC_NTT_IDLE,
-  MC_NTT_0,
-  MC_NTT_1,
-  MC_NTT_2,
+  MC_NTT_R0,
+  MC_NTT_R1,
+  MC_NTT_R2,
   MC_NTT_DONE
 } mc_ntt_round_e;
+
+typedef enum logic [2:0] {
+  MC_INV_NTT_IDLE,
+  MC_INV_NTT_AT0,
+  MC_INV_NTT_AT1,
+  MC_INV_NTT_AT2,
+  MC_INV_NTT_TVEC,
+  MC_INV_NTT_DONE
+} mc_inv_ntt_round_e;
 
 typedef enum logic [2:0] {
   MC_PVBM_IDLE,
@@ -97,6 +106,12 @@ module main_computation (
   logic [2*KYBER_POLY_WIDTH - 1 : 0] pvbm_ram_dina; // dina will save from a_t[0], a_t[3], a_t[6], t_vec[0]
   logic [2*KYBER_POLY_WIDTH - 1 : 0] pvbm_ram_dinb; // dinb will save from a_t[0], a_t[3], a_t[6], t_vec[0]
   logic pvbm_ram_we[4], pvbm_ram_en[15];
+
+  logic [6:0] inv_ntt_ram_addra;
+  logic [6:0] inv_ntt_ram_addrb;
+  logic [2*KYBER_POLY_WIDTH - 1 : 0] inv_ntt_ram_dina;
+  logic [2*KYBER_POLY_WIDTH - 1 : 0] inv_ntt_ram_dinb;
+  logic inv_ntt_ram_we[3], inv_ntt_ram_en[3];
 
   generate
     assign ram_addra = (current_state == MC_LOAD_RAM) ? lr_ram_addra : (current_state == MC_NTT)? ntt_ram_addra:(current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_addra :0;
@@ -195,6 +210,14 @@ module main_computation (
   logic [MC_ZETA_ADDR_BITS - 1:0] zeta_inv_addra;
   logic [MC_ZETA_ADDR_BITS - 1:0] zeta_inv_addrb;
 
+  rom_zetas_inv rom_zetas_inv (
+      .clk  (clk),
+      .addra(zeta_inv_addra),
+      .addrb(zeta_inv_addrb),
+      .douta(zeta_inv_a),
+      .doutb(zeta_inv_b)
+  );
+
   // **************************************************
   // NTT module convert noise r into ntt form
   // **************************************************
@@ -203,8 +226,8 @@ module main_computation (
 
   logic [2 * KYBER_POLY_WIDTH - 1:0] ntt_ram_read_data_a;
   logic [2 * KYBER_POLY_WIDTH - 1:0] ntt_ram_read_data_b;
-  assign ntt_ram_read_data_a = (ntt_current_state == MC_NTT_0)? ram_douta[12]: (ntt_current_state == MC_NTT_1)? ram_douta[13] : ram_douta[14];
-  assign ntt_ram_read_data_b = (ntt_current_state == MC_NTT_0)? ram_doutb[12]: (ntt_current_state == MC_NTT_1)? ram_doutb[13] : ram_doutb[14];
+  assign ntt_ram_read_data_a = (ntt_current_state == MC_NTT_R0)? ram_douta[12]: (ntt_current_state == MC_NTT_R1)? ram_douta[13] : ram_douta[14];
+  assign ntt_ram_read_data_b = (ntt_current_state == MC_NTT_R0)? ram_doutb[12]: (ntt_current_state == MC_NTT_R1)? ram_doutb[13] : ram_doutb[14];
 
   // output from ntt module waiting to wring back to RAMS
   // just set for all 3 poly r but choose wrtiing with enable signal
@@ -500,35 +523,35 @@ module main_computation (
     case (ntt_current_state)
       MC_NTT_IDLE: begin
         if (ntt_start) begin
-          ntt_next_state = MC_NTT_0;
+          ntt_next_state = MC_NTT_R0;
           ntt_enable = 1;
         end
       end
 
-      MC_NTT_0: begin
+      MC_NTT_R0: begin
         ntt_ram_we[0] = ntt_ram_we_predec;
         ntt_ram_en[0] = ntt_ram_en_predec;
         if (ntt_valid) begin
-          ntt_next_state = MC_NTT_1;
+          ntt_next_state = MC_NTT_R1;
           ntt_enable = 1;
-        end else ntt_next_state = MC_NTT_0;
+        end else ntt_next_state = MC_NTT_R0;
       end
 
-      MC_NTT_1: begin
+      MC_NTT_R1: begin
         ntt_ram_we[1] = ntt_ram_we_predec;
         ntt_ram_en[1] = ntt_ram_en_predec;
         if (ntt_valid) begin
-          ntt_next_state = MC_NTT_2;
+          ntt_next_state = MC_NTT_R2;
           ntt_enable = 1;
-        end else ntt_next_state = MC_NTT_1;
+        end else ntt_next_state = MC_NTT_R1;
       end
 
-      MC_NTT_2: begin
+      MC_NTT_R2: begin
         ntt_ram_we[2] = ntt_ram_we_predec;
         ntt_ram_en[2] = ntt_ram_en_predec;
         if (ntt_valid) begin
           ntt_next_state = MC_NTT_DONE;
-        end else ntt_next_state = MC_NTT_2;
+        end else ntt_next_state = MC_NTT_R2;
       end
       MC_NTT_DONE: begin
         ntt_done = 1;

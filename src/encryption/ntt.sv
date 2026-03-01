@@ -18,12 +18,16 @@ typedef enum {
   NTT_NEXT_BLOCK,
   NTT_NEXT_STAGE,
 
-  // we can use the same READ_INPUT, WRITE_OUTPUT 
+  /*
+  // we can use the same FSM for every step except
+  // the last fqmul
   INV_NTT_BARRETT_REDUCE,
   INV_NTT_COMPUTE,
   INV_NTT_WRITE_OUTPUT,
   INV_NTT_NEXT_BLOCK,
   INV_NTT_NEXT_STAGE,
+  */
+  INV_NTT_FQMUL,
 
   NTT_DONE
 } ntt_state_e;
@@ -71,22 +75,25 @@ module ntt (
   logic signed [KYBER_POLY_WIDTH - 1 : 0] butterfly_zeta[4];
 
   logic [4:0] butterly_set;
-  logic butterfly_start;
+  logic butterfly_enable;
   wand butterfly_valid;
 
-  logic barrett_reduce_start;
-  logic signed [KYBER_POLY_WIDTH - 1:0] barrett_reduce_out0[8], barrett_reduce_out1[8];
-  wand  barrett_reduce_valid;
-  logic barrett_reduce_done;
-  assign barrett_reduce_done = barrett_reduce_valid;
+  logic [1:0] barrett_reduce_enable;
+  wand [1:0] barrett_reduce_valid;
+  logic signed [KYBER_POLY_WIDTH - 1:0] barrett_reduce0_out[8], barrett_reduce1_out[8];
 
+  logic fqmul_zeta_inv127;
+  // generating 8 butterfly units that can do both 'cooley tukey' and
+  // 'gentleman sande' base on NTT_MODE;
+  // butterfly_out0(the lower bits addr) e.g. len = 128, out0 = 0, out1 = 128
   genvar g;
   generate
     for (g = 0; g < 8; g++) begin : g_butterfly
-      butterfly clt (
+      butterfly butterfly (
           .clk(clk),
-          .enable(butterfly_start),
+          .enable(butterfly_enable),
           .mode(mode),
+          .fqmul_zeta_inv127(fqmul_zeta_inv127),
           .a(butterfly_a[g]),
           .b(butterfly_b[g]),
           .zeta(butterfly_zeta[g/2]),
@@ -97,20 +104,21 @@ module ntt (
       );
 
       barrett_reduce barrett_reduce_0 (
-          .clk  (clk),
-          .start(barrett_reduce_start),
-          .a    (butterfly_out0[g]),
-          .r    (barrett_reduce_out0[g]),
-          .valid(barrett_reduce_valid)
+          .clk   (clk),
+          .enable(barrett_reduce_enable[0]),
+          .a     (butterfly_out0[g]),
+          .r     (barrett_reduce0_out[g]),
+          .valid (barrett_reduce_valid[0])
       );
 
       barrett_reduce barett_reduce_1 (
-          .clk  (clk),
-          .start(barrett_reduce_start),
-          .a    (butterfly_out1[g]),
-          .r    (barrett_reduce_out1[g]),
-          .valid(barrett_reduce_valid)
+          .clk   (clk),
+          .enable(barrett_reduce_enable[1]),
+          .a     (butterfly_out1[g]),
+          .r     (barrett_reduce1_out[g]),
+          .valid (barrett_reduce_valid[1])
       );
+
     end
   endgenerate
 
@@ -129,7 +137,7 @@ module ntt (
   logic compute_done;
   assign compute_done = butterfly_valid;
 
-  logic [2:0] compute_count;
+  logic compute_start;
   assign len = (mode == NTT) ? 8'd128 >> stage : 8'd2 << stage;
 
   // **************************************************
@@ -152,8 +160,12 @@ module ntt (
   // read_input_count_delay = 1;
   always_ff @(posedge clk) ram_rw_count_delay <= ram_rw_count;
 
+  // TODO : maybe could reduce number of ports for this module but it will
+  // complicate the main computation instead
   assign rom_zeta_addra = k;
   assign rom_zeta_addrb = rom_zeta_addra + 1;
+  assign rom_zeta_inv_addra = rom_zeta_addra;
+  assign rom_zeta_inv_addrb = rom_zeta_addrb;
 
   // **************************************************
   // Write Output logic: move to always_comb block
@@ -172,10 +184,13 @@ module ntt (
   logic last_stage;
   assign last_stage = (stage == 6);
 
+  logic barrett_reduce_done; // just for descriptive perpose done = state transition, valid = from module
+  assign barrett_reduce_done = (mode == NTT) ? (barrett_reduce_valid == 2'b11 ): (barrett_reduce_valid == 2'b01);
+
   always_comb begin
     ram_addra = 0;
     ram_addrb = 0;
-    case (stride)
+    unique case (stride)
       STRIDE_NORMAL: begin
         ram_addra = 7'(j >> 1) + 7'(ram_rw_count);
         ram_addrb = 7'((j + len) >> 1) + 7'(ram_rw_count);
@@ -193,7 +208,6 @@ module ntt (
         ram_addra = 7'(j >> 1) + 7'(2 * ram_rw_count);
         ram_addrb = 7'(j >> 1) + 7'(2 * ram_rw_count) + 1;
       end
-      default;
     endcase
   end
 
@@ -203,12 +217,12 @@ module ntt (
     valid = 0;
     ram_en = 0;
     ram_we = 0;
-    butterfly_start = 0;
-    barrett_reduce_start = 0;
+    barrett_reduce_enable = 2'b00;
+    butterfly_enable = 0;
     ram_rw_done = 0;
     ram_write_data_a = '0;
     ram_write_data_b = '0;
-    case (current_state)
+    unique case (current_state)
       NTT_IDLE: begin
         if (enable) begin
           next_state = NTT_READ_INPUT;
@@ -225,49 +239,109 @@ module ntt (
       end
 
       NTT_COMPUTE: begin
-        if (compute_count == 0) butterfly_start = 1;
+        next_state = NTT_COMPUTE;
+        if (compute_start == 1) butterfly_enable = 1;  // TODO : make a bettr butterfly_start
         if (compute_done) begin
-          // only reduce at the last stage
-          if (last_stage) begin
-            next_state = NTT_BARRETT_REDUCE;
-            barrett_reduce_start = 1;
-            // in normal stage NTT mode don't need to reduce
-          end else next_state = NTT_WRITE_OUTPUT;
-        end else next_state = NTT_COMPUTE;
+          unique case (mode)
+            NTT: begin
+              if (last_stage) begin  // only reduce at the last stage
+                next_state = NTT_BARRETT_REDUCE;
+                barrett_reduce_enable = 2'b11;
+              end else
+                next_state = NTT_WRITE_OUTPUT;  // if not the last stage NTT mode don't need to reduce
+            end
+            INV_NTT: begin
+              if (fqmul_zeta_inv127) begin
+                barrett_reduce_enable = 2'b00;
+                next_state = NTT_WRITE_OUTPUT;
+              end else begin
+                next_state = NTT_BARRETT_REDUCE;  // inv_ntt need to reduce out0 every time
+                barrett_reduce_enable = 2'b01;
+              end
+            end
+          endcase
+        end
       end
 
       NTT_BARRETT_REDUCE: begin
-        if (barrett_reduce_done) next_state = NTT_WRITE_OUTPUT;
-        else next_state = NTT_BARRETT_REDUCE;
+        next_state = NTT_BARRETT_REDUCE;
+        if (barrett_reduce_done) begin
+          if (mode == INV_NTT && last_stage) begin
+            next_state = INV_NTT_FQMUL;
+          end else next_state = NTT_WRITE_OUTPUT;
+        end
+      end
+
+      INV_NTT_FQMUL: begin
+        next_state = NTT_COMPUTE;
       end
 
       NTT_WRITE_OUTPUT: begin
         ram_rw_done = ram_rw_count == 4;
-        if (last_stage) begin
-          if (ram_rw_done) next_state = NTT_NEXT_BLOCK;
-          else begin
-            ram_write_data_a = {
-              barrett_reduce_out0[2*ram_rw_count+1], barrett_reduce_out0[2*ram_rw_count]
-            };
-            ram_write_data_b = {
-              barrett_reduce_out1[2*ram_rw_count+1], barrett_reduce_out1[2*ram_rw_count]
-            };
-            ram_en = 1;
-            ram_we = 1;
-            next_state = NTT_WRITE_OUTPUT;
+        next_state  = NTT_WRITE_OUTPUT;
+        unique case (mode)
+          NTT: begin
+            if (last_stage) begin
+              if (ram_rw_done) next_state = NTT_NEXT_BLOCK;
+              else begin
+                ram_en = 1;
+                ram_we = 1;
+                ram_write_data_a = {
+                  barrett_reduce0_out[2*ram_rw_count+1], barrett_reduce0_out[2*ram_rw_count]
+                };
+                ram_write_data_b = {
+                  barrett_reduce1_out[2*ram_rw_count+1], barrett_reduce1_out[2*ram_rw_count]
+                };
+              end
+            end else begin
+              if (ram_rw_done) begin
+                if (block_done) next_state = NTT_NEXT_BLOCK;
+                else next_state = NTT_READ_INPUT;
+              end else begin
+                ram_en = 1;
+                ram_we = 1;
+                ram_write_data_a = {
+                  butterfly_out0[2*ram_rw_count+1], butterfly_out0[2*ram_rw_count]
+                };
+                ram_write_data_b = {
+                  butterfly_out1[2*ram_rw_count+1], butterfly_out1[2*ram_rw_count]
+                };
+              end
+            end
           end
-        end else begin
-          if (ram_rw_done) begin
-            if (block_done) next_state = NTT_NEXT_BLOCK;
-            else next_state = NTT_READ_INPUT;
-          end else begin
-            ram_en = 1;
-            ram_we = 1;
-            ram_write_data_a = {butterfly_out0[2*ram_rw_count+1], butterfly_out0[2*ram_rw_count]};
-            ram_write_data_b = {butterfly_out1[2*ram_rw_count+1], butterfly_out1[2*ram_rw_count]};
-            next_state = NTT_WRITE_OUTPUT;
+
+          INV_NTT: begin
+            if (last_stage) begin
+              if (ram_rw_done)
+                if (block_done) next_state = NTT_NEXT_BLOCK;
+                else next_state = NTT_READ_INPUT;
+              else begin
+                ram_en = 1;
+                ram_we = 1;
+                ram_write_data_a = {
+                  butterfly_out0[2*ram_rw_count+1], butterfly_out0[2*ram_rw_count]
+                };
+                ram_write_data_b = {
+                  butterfly_out1[2*ram_rw_count+1], butterfly_out1[2*ram_rw_count]
+                };
+              end
+            end else begin
+              if (ram_rw_done) begin
+                if (block_done) next_state = NTT_NEXT_BLOCK;
+                else next_state = NTT_READ_INPUT;
+              end else begin
+                ram_en = 1;
+                ram_we = 1;
+                ram_write_data_a = {
+                  barrett_reduce0_out[2*ram_rw_count+1], barrett_reduce0_out[2*ram_rw_count]
+                };
+                ram_write_data_b = {
+                  butterfly_out1[2*ram_rw_count+1], butterfly_out1[2*ram_rw_count]
+                };
+              end
+            end
           end
-        end
+        endcase
       end
 
       NTT_NEXT_BLOCK: begin
@@ -283,8 +357,6 @@ module ntt (
         valid = 1;
         next_state = NTT_IDLE;
       end
-
-      default: next_state = NTT_IDLE;
     endcase
   end
 
@@ -297,7 +369,7 @@ module ntt (
   // Sequential behavior
   task reset_reg;
     ram_rw_count <= 0;
-    compute_count <= 0;
+    compute_start <= 0;
     start <= 0;
     butterly_set <= 0;
     j <= 0;
@@ -307,48 +379,73 @@ module ntt (
     if (reset) begin
       current_state <= NTT_IDLE;
       stage <= 0;
+      fqmul_zeta_inv127 <= 0;
       clear_clt();
       k <= 1;
       reset_reg();
     end else begin
       current_state <= next_state;
-      case (current_state)
+      unique case (current_state)
         NTT_IDLE: begin
           if (mode == NTT) k <= 1;
           else k = 0;
           stage <= 0;
+          fqmul_zeta_inv127 <= 0;
           clear_clt();
           reset_reg();
         end
 
         NTT_READ_INPUT: begin
           if (!ram_rw_done) ram_rw_count <= ram_rw_count + 1;
-          else ram_rw_count <= 0;
-          case (stride)
+          else begin
+            ram_rw_count  <= 0;
+            compute_start <= 1;
+          end
+          unique case (stride)
             STRIDE_NORMAL: begin
               // First cycle we set ram addr and we need to wait 1 cycle
               if (ram_rw_count != 0) begin
-                butterfly_a[2*ram_rw_count_delay] <= ram_data_ina_slice[0];
+                butterfly_a[2*ram_rw_count_delay]   <= ram_data_ina_slice[0];
                 butterfly_a[2*ram_rw_count_delay+1] <= ram_data_ina_slice[1];
-                butterfly_b[2*ram_rw_count_delay] <= ram_data_inb_slice[0];
+                butterfly_b[2*ram_rw_count_delay]   <= ram_data_inb_slice[0];
                 butterfly_b[2*ram_rw_count_delay+1] <= ram_data_inb_slice[1];
-                butterfly_zeta[0] <= zeta_a;
-                butterfly_zeta[1] <= zeta_a;
-                butterfly_zeta[2] <= zeta_a;
-                butterfly_zeta[3] <= zeta_a;
+                unique case (mode)
+                  NTT: begin
+                    butterfly_zeta[0] <= zeta_a;
+                    butterfly_zeta[1] <= zeta_a;
+                    butterfly_zeta[2] <= zeta_a;
+                    butterfly_zeta[3] <= zeta_a;
+                  end
+                  INV_NTT: begin
+                    butterfly_zeta[0] <= zeta_inv_a;
+                    butterfly_zeta[1] <= zeta_inv_a;
+                    butterfly_zeta[2] <= zeta_inv_a;
+                    butterfly_zeta[3] <= zeta_inv_a;
+                  end
+                endcase
               end
             end
 
             STRIDE_4: begin
               if (ram_rw_count != 0) begin
-                butterfly_a[2*ram_rw_count_delay] <= ram_data_ina_slice[0];
+                butterfly_a[2*ram_rw_count_delay]   <= ram_data_ina_slice[0];
                 butterfly_a[2*ram_rw_count_delay+1] <= ram_data_ina_slice[1];
-                butterfly_b[2*ram_rw_count_delay] <= ram_data_inb_slice[0];
+                butterfly_b[2*ram_rw_count_delay]   <= ram_data_inb_slice[0];
                 butterfly_b[2*ram_rw_count_delay+1] <= ram_data_inb_slice[1];
-                butterfly_zeta[0] <= zeta_a;
-                butterfly_zeta[1] <= zeta_a;
-                butterfly_zeta[2] <= zeta_b;
-                butterfly_zeta[3] <= zeta_b;
+                unique case (mode)
+                  NTT: begin
+                    butterfly_zeta[0] <= zeta_a;
+                    butterfly_zeta[1] <= zeta_a;
+                    butterfly_zeta[2] <= zeta_b;
+                    butterfly_zeta[3] <= zeta_b;
+                  end
+                  INV_NTT: begin
+                    butterfly_zeta[0] <= zeta_inv_a;
+                    butterfly_zeta[1] <= zeta_inv_a;
+                    butterfly_zeta[2] <= zeta_inv_b;
+                    butterfly_zeta[3] <= zeta_inv_b;
+                  end
+                endcase
               end
             end
 
@@ -360,29 +457,53 @@ module ntt (
                 butterfly_b[2*ram_rw_count_delay+1] <= ram_data_inb_slice[1];
               end
               if (ram_rw_count == 1) begin
-                butterfly_zeta[0] <= zeta_a;
-                butterfly_zeta[1] <= zeta_b;
-                k <= k + 2;
+                unique case (mode)
+                  NTT: begin
+                    butterfly_zeta[0] <= zeta_a;
+                    butterfly_zeta[1] <= zeta_b;
+                    k <= k + 2;
+                  end
+                  INV_NTT: begin
+                    butterfly_zeta[0] <= zeta_inv_a;
+                    butterfly_zeta[1] <= zeta_inv_b;
+                    k <= k + 2;
+                  end
+                endcase
               end else if (ram_rw_count == 3) begin
-                butterfly_zeta[2] <= zeta_a;
-                butterfly_zeta[3] <= zeta_b;
+                unique case (mode)
+                  NTT: begin
+                    butterfly_zeta[2] <= zeta_a;
+                    butterfly_zeta[3] <= zeta_b;
+                  end
+                  INV_NTT: begin
+                    butterfly_zeta[2] <= zeta_inv_a;
+                    butterfly_zeta[3] <= zeta_inv_b;
+                  end
+                endcase
               end
             end
-            default;
           endcase
         end
 
         NTT_COMPUTE: begin
-          compute_count <= compute_count + 1;
+          compute_start <= 0;
         end
 
-        NTT_BARRETT_REDUCE: begin
+        NTT_BARRETT_REDUCE: ;
+
+        INV_NTT_FQMUL: begin
+          fqmul_zeta_inv127 <= 1;
+          compute_start <= 1;
+          for (int i = 0; i < 8; i++) begin
+            butterfly_a[i] <= barrett_reduce0_out[i];
+            butterfly_b[i] <= butterfly_out1[i];
+          end
         end
 
         NTT_WRITE_OUTPUT: begin
-          compute_count <= 0;
           if (!ram_rw_done) ram_rw_count <= ram_rw_count + 1;
           else begin
+            fqmul_zeta_inv127 <= 0;
             j <= j + 8;
             butterly_set <= butterly_set + 1;
             ram_rw_count <= 0;
@@ -390,7 +511,7 @@ module ntt (
         end
 
         NTT_NEXT_BLOCK: begin
-          case (stride)
+          unique case (stride)
             STRIDE_NORMAL: begin
               k <= k + 1;
               j <= j + len;  // j = start;
@@ -406,14 +527,14 @@ module ntt (
               j <= j + (len << 2);
               start <= j + (len << 2);
             end
-            default;
           endcase
         end
         NTT_NEXT_STAGE: begin
           reset_reg();
           stage <= stage + 1;
         end
-        default: ;
+
+        NTT_DONE: ;
       endcase
     end
   end

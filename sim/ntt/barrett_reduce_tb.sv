@@ -6,10 +6,10 @@ module barrett_reduce_tb;
   reg signed [KYBER_POLY_WIDTH - 1:0] a;
   wire signed [KYBER_POLY_WIDTH - 1:0] r;
   barrett_reduce #() barett_reduce (
-      .clk  (clk),
-      .start(start),
-      .a    (a),
-      .r    (r)
+      .clk   (clk),
+      .enable(start),
+      .a     (a),
+      .r     (r)
   );
 
   initial begin

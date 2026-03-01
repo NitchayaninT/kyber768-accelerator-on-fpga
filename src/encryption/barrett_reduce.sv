@@ -5,7 +5,7 @@ import params_pkg::*;
 
 module barrett_reduce (
     input clk,
-    input start,
+    input enable,
     input signed [KYBER_POLY_WIDTH - 1:0] a,
     output logic signed [KYBER_POLY_WIDTH - 1:0] r,
     output logic valid
@@ -16,7 +16,7 @@ module barrett_reduce (
 
   always @(posedge clk) begin
     valid <= 0;  // default each cycle
-    if (start) begin
+    if (enable) begin
       t <= (v * a) >>> 26;
       count <= 0;
       valid <= 0;
