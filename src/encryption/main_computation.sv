@@ -58,6 +58,7 @@ module main_computation (
     input enable,
     input reset,
     input main_compute_mode_e mode,  // 0 = enc, 1 = dec
+
     input [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1],
     input [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1],
     input [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3],

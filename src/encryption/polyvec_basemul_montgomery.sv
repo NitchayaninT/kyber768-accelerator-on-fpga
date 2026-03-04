@@ -30,7 +30,6 @@ module polyvec_basemul_montgomery (
     // Signal for ram out
 );
 
-
   // **************************************************
   // 3 parallel poly_basemul_montgomery modules
   // computing 3 polynominal pointwise multiplications in parallel
@@ -181,26 +180,16 @@ module polyvec_basemul_montgomery (
       index <= 0;
       rom_zeta_addr <= 64;
     end else begin
-
       current_state = next_state;
       case (current_state)
         PVBM_IDLE: begin
           index <= 0;
           rom_zeta_addr <= 64;
         end
-
-        PVBM_READ_INPUT: begin
-        end
-
-        PVBM_COMPUTE_BASEMUL: begin
-        end
-
-        PVBM_BARRETT_REDUCE: begin
-        end
-
-        PVBM_WRITE_OUTPUT: begin
-        end
-
+        PVBM_READ_INPUT: ;
+        PVBM_COMPUTE_BASEMUL: ;
+        PVBM_BARRETT_REDUCE: ;
+        PVBM_WRITE_OUTPUT: ;
         PVBM_NEXT_INDEX: begin
           index <= index + 1;
           rom_zeta_addr <= rom_zeta_addr + 1;
