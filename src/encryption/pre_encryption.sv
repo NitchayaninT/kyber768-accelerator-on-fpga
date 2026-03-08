@@ -38,12 +38,12 @@ module pre_encryption (
     //input kem_enc_decap, // flag for encapsulation or decapsulation
     input [`KYBER_N - 1:0] r_in,  // in kem_enc : R, in kem_dec : msg'
     input [(`KYBER_N)+(`KYBER_K * `KYBER_RQ_WIDTH * `KYBER_N)-1:0] encryption_key,
-    output [`KYBER_POLY_WIDTH-1:0] e2 [0:`KYBER_N-1], 
-    output [`KYBER_POLY_WIDTH-1:0] e1 [0:`KYBER_K-1][0:`KYBER_N-1],  
-    output [`KYBER_POLY_WIDTH-1:0] r [0:`KYBER_K-1][0:`KYBER_N-1], 
+    output logic signed [`KYBER_POLY_WIDTH-1:0] e2 [0:`KYBER_N-1], 
+    output logic signed [`KYBER_POLY_WIDTH-1:0] e1 [0:`KYBER_K-1][0:`KYBER_N-1],  
+    output logic signed [`KYBER_POLY_WIDTH-1:0] r [0:`KYBER_K-1][0:`KYBER_N-1], 
     output [(`KYBER_N * `KYBER_RQ_WIDTH)-1:0] t_vec [3],
     output [`KYBER_POLY_WIDTH-1 : 0] a_t [0:(`KYBER_K*`KYBER_K)-1][0:`KYBER_N-1],
-    output [(`KYBER_RQ_WIDTH * `KYBER_N)-1:0] msg_poly,
+    output logic [`KYBER_POLY_WIDTH-1 : 0] msg_poly [0:`KYBER_N-1],
     output reg [`KYBER_N - 1:0] pre_k,
     output reg valid
 );
@@ -58,6 +58,7 @@ module pre_encryption (
   reg public_matrix_valid;
   reg noise_done;
   reg public_matrix_done;
+  reg [(`KYBER_N * `KYBER_RQ_WIDTH)-1:0] msg_poly_packed; // packed version of msg_poly for easier handling in decode_msg
   wire [`KYBER_N - 1:0] hash_ek;
   logic [(2 * `KYBER_N) - 1:0] buf0;  // store hash(ek),msg
   logic [(2 * `KYBER_N) - 1:0] buf1;  // store coin,pre_k
@@ -87,21 +88,12 @@ module pre_encryption (
       .done(sha3_valid[1])
   );
 
-<<<<<<< HEAD:src/encryption/pre_encryption/pre_encryption.sv
-// 2.5 Concatenate hash(ek) || msg
-always_comb begin
-  sha512_valid = sha3_valid[0] & sha3_valid[1];
-  if (sha512_valid) buf0 = {hash_ek, msg};
-  else buf0 = '0;
-end
-=======
   // 2.5 Concatenate hash(ek) || msg. msg is at higher bits
   always_comb begin
     sha512_valid = sha3_valid[0] & sha3_valid[1];
     if (sha512_valid) buf0 = {hash_ek, msg};
     else buf0 = '0;
   end
->>>>>>> 6540d52 (implement main_computation module act as top for):src/encryption/pre_encryption.sv
 
   // 3. SHA3-512(SHA3-256(ek) || msg) to generate coin, pre_k
   sha3_512 sha3_uut3 (
@@ -131,15 +123,17 @@ end
   // 4. Decode decompress msg
   decode_msg dmsg_uut (
       .msg(msg),
-      .poly_msg(msg_poly)
+      .poly_msg(msg_poly_packed)
   );
 
-<<<<<<< HEAD:src/encryption/pre_encryption/pre_encryption.sv
-// 5. Decode PK to get seed (rho)
-=======
-  // 5. Decode PK to get seed (rho)
-  // ** rho is correct, but t_trans is not
->>>>>>> 6540d52 (implement main_computation module act as top for):src/encryption/pre_encryption.sv
+  integer i;
+  always_comb begin
+    for (i = 0; i < `KYBER_N; i = i + 1) begin
+        msg_poly[i] = $signed({4'b0000, msg_poly_packed[i*12 +: 12]});
+    end
+end
+
+// 5. Decode PK to get seed (rho) and t trans
   decode_pk dpk_uut (
       .public_key(encryption_key),
       .rho(rho), // this rho is still in reversed order due to pk's input, it will be reversed to the correct order in shake

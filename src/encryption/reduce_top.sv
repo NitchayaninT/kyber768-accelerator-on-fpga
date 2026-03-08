@@ -6,8 +6,8 @@ module reduce_top (
     input clk,
     input rst,
     input enable,
-    input  [15:0] u [0:2][0:255], // u and v from post-encryption
-    input  [15:0] v [0:255],
+    input signed [15:0] u [0:2][0:255], // u and v from post-encryption
+    input  signed [15:0] v [0:255],
     output reg [11:0] out_u [0:2][0:255], // reduced u for post-enc
     output reg [11:0] out_v [0:255], // reduced v for post-enc
     output reg reduce_done

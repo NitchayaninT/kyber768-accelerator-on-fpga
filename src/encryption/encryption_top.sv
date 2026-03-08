@@ -3,6 +3,7 @@
 From Pre-Encryption to Post-Encryption
 */
 `timescale 1ns / 1ps
+`include "main_computation.sv" 
 `include "params.vh"
 module encryption_top (
     input clk,
@@ -16,14 +17,16 @@ module encryption_top (
     output reg encrypt_done // DONE WITH ENCRYPTION AAAAA
 );
     integer i,j;
-    reg [`KYBER_POLY_WIDTH-1:0] e2 [0:`KYBER_N-1];
-    reg [`KYBER_POLY_WIDTH-1:0] e1 [0:`KYBER_K-1][0:`KYBER_N-1];
-    reg [`KYBER_POLY_WIDTH-1:0] r [0:`KYBER_K-1][0:`KYBER_N-1];
+    logic signed [`KYBER_POLY_WIDTH-1:0] e2 [0:`KYBER_N-1];
+    logic signed [`KYBER_POLY_WIDTH-1:0] e1 [0:`KYBER_K-1][0:`KYBER_N-1];
+    logic signed [`KYBER_POLY_WIDTH-1:0] r [0:`KYBER_K-1][0:`KYBER_N-1];
     reg [(`KYBER_N * `KYBER_RQ_WIDTH)-1:0] t_vec [3];
     reg [`KYBER_POLY_WIDTH-1 : 0] a_t [0:(`KYBER_K*`KYBER_K)-1][0:`KYBER_N-1];
-    reg [(`KYBER_RQ_WIDTH * `KYBER_N)-1:0] msg_poly;
-    logic [15:0] u [0:2][0:255];
-    logic [15:0] v [0:255];
+    logic [`KYBER_POLY_WIDTH-1 : 0] msg_poly [0:`KYBER_N-1];
+    logic signed [15:0] x [0:2][0:255];
+    logic signed [15:0] y [0:255];
+    logic signed [15:0] u [0:2][0:255];
+    logic signed [15:0] v [0:255];
     logic [11:0] out_u [0:2][0:255];
     logic [11:0] out_v [0:255];
     logic [7:0]  c1 [0:959]; // 960 bytes
@@ -31,6 +34,7 @@ module encryption_top (
 
     // done signals
     logic pre_enc_done;
+    logic main_comp_done;
     logic add_done;
     logic reduce_done;
     logic compress_done;
@@ -51,10 +55,47 @@ module encryption_top (
         .pre_k(pre_k),
         .valid(pre_enc_done)
     );
-    // NTT
-    // PACC
-    // INTT
+
+    // Main computation (NTT, PACC, INTT) 
+    // mode 0 for enc
+    main_computation main_computation_uut (
+        .clk(clk),
+        .reset(rst),
+        .enable(pre_enc_done), // start main computation when pre-encryption is done
+        .mode(0),
+        .a_t(a_t),
+        .t_vec(t_vec),
+        .r(r),
+        .u(x), // signed
+        .v(y), // signed
+        .valid(main_comp_done)
+    );
+  
     // Addition
+    // generate u
+    genvar k;
+    generate
+        for (k = 0; k < `KYBER_K; k = k + 1) begin : add_u
+            add add_u_uut (
+                .a(x[k]),
+                .b(e1[k]),
+                .r(u[k]) // output 1
+            );
+        end
+    endgenerate
+
+    // generate v
+    add add_v1_uut (
+            .a(y),
+            .b(e2),
+            .r(v)
+        );
+ 
+    add add_v2_uut (
+            .a(v),
+            .b(msg_poly),
+            .r(v) // output 2
+        );
 
     // Reduce (need a 2nd top module to control u, v inputs)
     reduce_top reduce_top_uut (

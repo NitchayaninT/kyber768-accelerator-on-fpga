@@ -5,18 +5,19 @@ and use cbd to generate noise polynomials*/
 // poly count 0-2 =  r
 // poly count 3-5 = e1
 // poly count 6 = e2 */
+`include "params.vh"
 module noise_gen(
     input clk,
     input rst,
     input enable,
     input [255:0] coin,
     output reg noise_done,
-    output reg [15:0] r [0:2][0:255],
-    output reg [15:0] e1 [0:2][0:255],
-    output reg [15:0] e2 [0:255]
+    output logic signed [`KYBER_POLY_WIDTH-1:0] r [0:`KYBER_K-1][0:`KYBER_N-1],
+    output logic signed [`KYBER_POLY_WIDTH-1:0] e1 [0:`KYBER_K-1][0:`KYBER_N-1],
+    output logic signed [`KYBER_POLY_WIDTH-1:0] e2 [0:`KYBER_N-1]
 );
 // -- Noise gen -- //
-    wire [4095:0] noise_poly_out; // 256 coeffs, each coeff is 16 bits. 128 bytes per poly
+    wire signed [4095:0] noise_poly_out; // 256 coeffs, each coeff is 16 bits. 128 bytes per poly
     reg [2:0] noise_poly_index; // 0-2
     reg noise_poly_valid; // valid if poly is ready
     wire [1023:0] noise_stream; // from shake
@@ -133,17 +134,17 @@ always_ff @(posedge clk) begin
   if (noise_poly_valid) begin
     if(nonce <= 2) begin
         for (c = 0; c < 256; c++) begin
-            r[noise_poly_index][c] <= noise_poly_out[c*16 +: 16];
+            r[noise_poly_index][c] <=  $signed(noise_poly_out[c*16 +: 16]);
         end
     end
     else if (nonce <= 5) begin
         for (c = 0; c < 256; c++) begin
-            e1[noise_poly_index][c] <= noise_poly_out[c*16 +: 16];
+            e1[noise_poly_index][c] <=  $signed(noise_poly_out[c*16 +: 16]);
         end
     end
     else begin
         for (c = 0; c < 256; c++) begin
-            e2[c] <= noise_poly_out[c*16 +: 16];
+            e2[c] <=  $signed(noise_poly_out[c*16 +: 16]);
         end
     end
   end
