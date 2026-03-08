@@ -72,7 +72,7 @@ module pre_encryption (
       .enable(start),
       .in(r_in),  // 256 bit random input
       .input_len(256),
-      .output_string(msg),
+      .output_string(msg), // get msg
       .done(sha3_valid[0])
   );
 

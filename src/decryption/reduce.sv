@@ -44,36 +44,6 @@ Optimization
 - this way, only 1 coeff will be processed per cycle, which improves efficiency
 */
 `timescale 1ns / 1ps
-<<<<<<< HEAD
-module reduce (
-    input clk,
-    input rst,
-    input enable,
-    input [15:0] u[0:2][0:255],  // 3 polynomials of degree 256
-    input [15:0] v[0:255],  // 1 polynomial of degree 256
-    output reg reduce_done,
-    output reg [15:0] u_reduced[0:2][0:255],
-    output reg [15:0] v_reduced[0:255]
-);
-  // Barrett reduction function
-  // Fast way of computing a mod q because it only involves multiplication and bit-shifting, not division
-  // Input: 16 bits signed integer a (from C definition)
-  // Output: a mod 3329
-  function automatic logic signed [15:0] barrett_reduce(input logic signed [15:0] a);
-    localparam int Q = 3329;
-
-    // v = (2^26 + 3329/2)/3329 == 20159 for Q=3329
-    localparam int V = 20159;
-    logic signed [31:0] mul;
-    logic signed [15:0] t;
-    logic signed [31:0] q_est;  // estimated quotient (after >> 26)
-
-    begin
-      mul = V * a;  // t = V * a (32 bits)
-      q_est = mul >>> 26;  // arithmetic shift
-      t = q_est * Q;  // t = q_est * Q
-      barrett_reduce = a - t;  // return a - t
-=======
 module reduce#(
     parameter int N = 256,
     parameter int Q = 3329,
@@ -160,37 +130,5 @@ module reduce#(
                 end
             endcase
         end
->>>>>>> d04125a (before post-decryption)
     end
-  endfunction
-
-  integer i, j;
-  always @(posedge clk) begin
-    if (rst) begin
-      reduce_done <= 1'b0;
-      for (i = 0; i < 3; i = i + 1) begin
-        for (j = 0; j < 256; j = j + 1) begin
-          u_reduced[i][j] <= 16'd0;
-        end
-      end
-      for (j = 0; j < 256; j = j + 1) begin
-        v_reduced[j] <= 16'd0;
-      end
-    end else if (enable) begin
-      // Reduce u
-      for (i = 0; i < 3; i = i + 1) begin
-        for (j = 0; j < 256; j = j + 1) begin
-          u_reduced[i][j] <= barrett_reduce(u[i][j]);
-        end
-      end
-      // Reduce v
-      for (j = 0; j < 256; j = j + 1) begin
-        v_reduced[j] <= barrett_reduce(v[j]);
-      end
-      reduce_done <= 1'b1;
-    end else begin
-      reduce_done <= 1'b0;
-    end
-  end
 endmodule
-
