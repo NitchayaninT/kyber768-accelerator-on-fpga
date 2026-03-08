@@ -1,4 +1,3 @@
-`include "params.vh"
 // #######################################
 // in topmodule we need  to generate r_in somehow!
 // ######################################
@@ -30,27 +29,28 @@
 //  #######################################
 // -- FSM --
 // IDLE -> HASH_RIN -> HASH_PK -> HASH_BUF0 -> GEN_PUBLIC_MAT -> GEN_NOISE
+import params_pkg::*;
 
 module pre_encryption (
     input clk,
     input start,
     input rst,
     //input kem_enc_decap, // flag for encapsulation or decapsulation
-    input [`KYBER_N - 1:0] r_in,  // in kem_enc : R, in kem_dec : msg'
-    input [(`KYBER_N)+(`KYBER_K * `KYBER_RQ_WIDTH * `KYBER_N)-1:0] encryption_key,
-    output logic signed [`KYBER_POLY_WIDTH-1:0] e2 [0:`KYBER_N-1], 
-    output logic signed [`KYBER_POLY_WIDTH-1:0] e1 [0:`KYBER_K-1][0:`KYBER_N-1],  
-    output logic signed [`KYBER_POLY_WIDTH-1:0] r [0:`KYBER_K-1][0:`KYBER_N-1], 
-    output [(`KYBER_N * `KYBER_RQ_WIDTH)-1:0] t_vec [3],
-    output [`KYBER_POLY_WIDTH-1 : 0] a_t [0:(`KYBER_K*`KYBER_K)-1][0:`KYBER_N-1],
-    output logic [`KYBER_POLY_WIDTH-1 : 0] msg_poly [0:`KYBER_N-1],
-    output reg [`KYBER_N - 1:0] pre_k,
+    input [KYBER_N - 1:0] r_in,  // in kem_enc : R, in kem_dec : msg'
+    input [(KYBER_N)+(KYBER_K * KYBER_RQ_WIDTH * KYBER_N)-1:0] encryption_key,
+    output logic signed [KYBER_POLY_WIDTH-1:0] e2[0:KYBER_N-1],
+    output logic signed [KYBER_POLY_WIDTH-1:0] e1[0:KYBER_K-1][0:KYBER_N-1],
+    output logic signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1],
+    output [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3],
+    output [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1],
+    output logic signed [KYBER_POLY_WIDTH-1 : 0] msg_poly[0:KYBER_N-1],
+    output reg [KYBER_N - 1:0] pre_k,
     output reg valid
 );
 
-  reg [`KYBER_N - 1:0] msg;
-  reg [`KYBER_N - 1:0] coin;
-  reg [`KYBER_N - 1:0] rho;
+  reg [KYBER_N - 1:0] msg;
+  reg [KYBER_N - 1:0] coin;
+  reg [KYBER_N - 1:0] rho;
   // Internal variable between module
   reg sha3_valid[3];
   reg sha512_valid;
@@ -58,10 +58,10 @@ module pre_encryption (
   reg public_matrix_valid;
   reg noise_done;
   reg public_matrix_done;
-  reg [(`KYBER_N * `KYBER_RQ_WIDTH)-1:0] msg_poly_packed; // packed version of msg_poly for easier handling in decode_msg
-  wire [`KYBER_N - 1:0] hash_ek;
-  logic [(2 * `KYBER_N) - 1:0] buf0;  // store hash(ek),msg
-  logic [(2 * `KYBER_N) - 1:0] buf1;  // store coin,pre_k
+  reg [(KYBER_N * KYBER_RQ_WIDTH)-1:0] msg_poly_packed; // packed version of msg_poly for easier handling in decode_msg
+  wire [KYBER_N - 1:0] hash_ek;
+  logic [(2 * KYBER_N) - 1:0] buf0;  // store hash(ek),msg
+  logic [(2 * KYBER_N) - 1:0] buf1;  // store coin,pre_k
   reg [3:0] public_matrix_poly_index;
   reg public_matrix_poly_valid;
 
@@ -73,7 +73,7 @@ module pre_encryption (
       .enable(start),
       .in(r_in),  // 256 bit random input
       .input_len(256),
-      .output_string(msg), // get msg
+      .output_string(msg),  // get msg
       .done(sha3_valid[0])
   );
 
@@ -83,7 +83,7 @@ module pre_encryption (
       .rst(rst),
       .enable(start),
       .in(encryption_key),
-      .input_len((`KYBER_N) + (`KYBER_K * `KYBER_RQ_WIDTH * `KYBER_N)),  //9472
+      .input_len((KYBER_N) + (KYBER_K * KYBER_RQ_WIDTH * KYBER_N)),  //9472
       .output_string(hash_ek),  //256
       .done(sha3_valid[1])
   );
@@ -113,8 +113,8 @@ module pre_encryption (
       pre_k <= 'd0;
     end else begin
       if (sha3_valid[2]) begin
-        pre_k <= buf1[(`KYBER_N)-1:0];  // first 256
-        coin  <= buf1[(2*`KYBER_N)-1:`KYBER_N];  //last 256
+        pre_k <= buf1[(KYBER_N)-1:0];  // first 256
+        coin  <= buf1[(2*KYBER_N)-1:KYBER_N];  //last 256
       end
       noise_gen_valid <= sha3_valid[2];  // Can do noise gen now
     end
@@ -128,12 +128,12 @@ module pre_encryption (
 
   integer i;
   always_comb begin
-    for (i = 0; i < `KYBER_N; i = i + 1) begin
-        msg_poly[i] = $signed({4'b0000, msg_poly_packed[i*12 +: 12]});
+    for (i = 0; i < KYBER_N; i = i + 1) begin
+      msg_poly[i] = $signed({4'b0000, msg_poly_packed[i*12+:12]});
     end
-end
+  end
 
-// 5. Decode PK to get seed (rho) and t trans
+  // 5. Decode PK to get seed (rho) and t trans
   decode_pk dpk_uut (
       .public_key(encryption_key),
       .rho(rho), // this rho is still in reversed order due to pk's input, it will be reversed to the correct order in shake

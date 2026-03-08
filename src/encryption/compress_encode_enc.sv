@@ -16,8 +16,8 @@ module compress_encode #(
     input  logic enable,
     input  logic rst,
     input  logic clk,
-    input  logic [11:0] u [0:2][0:255],   // 3 polys of 256 coeffs
-    input  logic [11:0] v [0:255],        // 1 poly of 256 coeffs
+    input  logic signed [11:0] u [0:2][0:255],   // 3 polys of 256 coeffs
+    input  logic signed [11:0] v [0:255],        // 1 poly of 256 coeffs
 
     // c1 = 3 * 320 bytes = 960 bytes (du=10)
     // c2 = 128 bytes (dv=4)
