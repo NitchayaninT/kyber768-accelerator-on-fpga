@@ -11,17 +11,17 @@ module main_computation_tb;
   logic clk, reset, enable;
   logic [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1];
   logic [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1];
-  logic [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3];
+  logic [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_s[3];
 
   logic signed [KYBER_POLY_WIDTH-1:0] u[0:KYBER_K-1][0:KYBER_N-1];
-  logic signed [KYBER_POLY_WIDTH-1:0] v[0:KYBER_N-1];
+  logic signed [KYBER_POLY_WIDTH-1:0] v_a[0:KYBER_N-1];
 
   logic [KYBER_POLY_WIDTH - 1:0] t_vec_transform[KYBER_K][KYBER_N];
   genvar i, j;
   generate
     for (j = 0; j < 3; j++) begin : g_t_vec_trans_k
       for (i = 0; i < 256; i++) begin : g_t_vec_trans_n
-        assign t_vec[j][KYBER_RQ_WIDTH*i+:KYBER_RQ_WIDTH] = 12'(t_vec_transform[j][i]);
+        assign t_s[j][KYBER_RQ_WIDTH*i+:KYBER_RQ_WIDTH] = 12'(t_vec_transform[j][i]);
       end
     end
   endgenerate
@@ -33,10 +33,10 @@ module main_computation_tb;
       .reset (reset),
       .mode  (mode),
       .a_t   (a_t),
-      .r     (r),
+      .r_u   (r),
       .u     (u),
-      .v     (v),
-      .t_vec (t_vec),
+      .v_a   (v_a),
+      .t_s   (t_s),
       .valid (valid)
   );
 
@@ -65,6 +65,9 @@ module main_computation_tb;
   int fd;
   int index;
   initial begin
+    // **************************************************
+    // ENC mode
+    // **************************************************
     clk <= 0;
     enable <= 0;
     reset <= 0;
@@ -213,10 +216,22 @@ module main_computation_tb;
 
     fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/v.hex", "w");
     for (index = 0; index < 256; index++) begin
-      $fdisplay(fd, "%h", v[index]);
+      $fdisplay(fd, "%h", v_a[index]);
     end
     $fclose(fd);
-    $display("done");
+
+
+    // **************************************************
+    // DEC mode
+    // **************************************************
+    mode <= DEC;
+    #10 enable <= 1;
+    #2 enable <= 0;
+    wait (main_computation.valid) $display("done");
+    fd = $fopen("/home/pakin/kyber/data/test_result/main_compute/a.hex", "w");
+    for (index = 0; index < 256; index++) begin
+      $fdisplay(fd, "%h", v_a[index]);
+    end
     #20 $finish;
   end
 

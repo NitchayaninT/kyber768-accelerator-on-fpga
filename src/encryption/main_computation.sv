@@ -25,9 +25,9 @@ typedef enum logic [1:0] {
 
 typedef enum logic [2:0] {
   MC_NTT_IDLE,
-  MC_NTT_R0,
-  MC_NTT_R1,
-  MC_NTT_R2,
+  MC_NTT_0,
+  MC_NTT_1,
+  MC_NTT_2,
   MC_NTT_DONE
 } mc_ntt_round_e;
 
@@ -36,7 +36,7 @@ typedef enum logic [2:0] {
   MC_INV_NTT_AT0,
   MC_INV_NTT_AT1,
   MC_INV_NTT_AT2,
-  MC_INV_NTT_TVEC,
+  MC_INV_NTT_T_S,
   MC_INV_NTT_DONE
 } mc_inv_ntt_round_e;
 
@@ -45,7 +45,7 @@ typedef enum logic [2:0] {
   MC_PVBM_AT0,
   MC_PVBM_AT1,
   MC_PVBM_AT2,
-  MC_PVBM_TVEC,
+  MC_PVBM_T_S,
   MC_PVBM_DONE
 } mc_pvbm_state_e;
 
@@ -60,12 +60,12 @@ module main_computation (
     input main_compute_mode_e mode,  // 0 = enc, 1 = dec
 
     input [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1],
-    input [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1],
-    input [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3],
+    input [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_s[3],  // encryption store t and decryption store s
+    input [KYBER_POLY_WIDTH-1:0] r_u[0:KYBER_K-1][0:KYBER_N-1], // encryption store r, decryption store u
 
     // output signal for compatibilty with other module passing netlist
     output logic signed [KYBER_POLY_WIDTH-1:0] u[0:KYBER_K-1][0:KYBER_N-1],
-    output logic signed [KYBER_POLY_WIDTH-1:0] v[0:KYBER_N-1],
+    output logic signed [KYBER_POLY_WIDTH-1:0] v_a[0:KYBER_N-1],
     output logic valid
 );
 
@@ -80,7 +80,7 @@ module main_computation (
   generate
     for (j = 0; j < 3; j++) begin : g_t_vec
       for (i = 0; i < 256; i++) begin : g_t_vec_coeffs
-        assign t_vec_transform[j][i] = {4'd0, t_vec[j][KYBER_RQ_WIDTH*i+:KYBER_RQ_WIDTH]};
+        assign t_vec_transform[j][i] = {4'd0, t_s[j][KYBER_RQ_WIDTH*i+:KYBER_RQ_WIDTH]};
       end
     end
   endgenerate
@@ -134,31 +134,31 @@ module main_computation (
     assign ram_addra = (current_state == MC_LOAD_RAM) ? lr_ram_addra : (current_state == MC_NTT)? ntt_ram_addra:(current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_addra :(current_state == MC_INV_NTT)? inv_ntt_ram_addra:0;
     assign ram_addrb = (current_state == MC_LOAD_RAM) ? lr_ram_addrb : (current_state == MC_NTT)? ntt_ram_addrb:(current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_addrb :(current_state == MC_INV_NTT)? inv_ntt_ram_addrb:0;
 
-    for (i = 0; i < 9; i++) begin : g_at_ram
-      if (i % 3 == 0) begin : g_at_ram_writeback
-        assign ram_we[i]   = (current_state == MC_LOAD_RAM)? lr_ram_we      : (current_state == MC_NTT)? 0: (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_we[i/3]:(current_state == MC_INV_NTT)? inv_ntt_ram_we[i/3]:0;
-        assign ram_en[i]   = (current_state == MC_LOAD_RAM)? lr_ram_en      : (current_state == MC_NTT)? 0: (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_en[i]:(current_state == MC_INV_NTT)? inv_ntt_ram_en[i/3]:0;
+    // ram [0-9] only use in ENC, not in DEC
+    for (i = 0; i < 9; i++) begin : g_ram_at
+      if (i % 3 == 0) begin : g_ram_at_writeback
+        assign ram_we[i]   = (mode == ENC)?((current_state == MC_LOAD_RAM)? lr_ram_we      : (current_state == MC_NTT)? 0: (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_we[i/3]:(current_state == MC_INV_NTT)? inv_ntt_ram_we[i/3]:0):0;
+        assign ram_en[i]   = (mode == ENC)?((current_state == MC_LOAD_RAM)? lr_ram_en      : (current_state == MC_NTT)? 0: (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_en[i]:(current_state == MC_INV_NTT)? inv_ntt_ram_en[i/3]:0):0;
         assign ram_dina[i] = (current_state == MC_LOAD_RAM)? lr_ram_dina[i] : (current_state == MC_NTT)? 0: (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_dina:(current_state == MC_INV_NTT)? inv_ntt_ram_dina:0;
         assign ram_dinb[i] = (current_state == MC_LOAD_RAM)? lr_ram_dinb[i] : (current_state == MC_NTT)? 0: (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_dinb:(current_state == MC_INV_NTT)? inv_ntt_ram_dinb:0;
 
-      end else begin : g_at_ram_normal
-        assign ram_we[i]   = (current_state == MC_LOAD_RAM) ? lr_ram_we      : (current_state == MC_NTT)? 0:0;
-        assign ram_en[i]   = (current_state == MC_LOAD_RAM) ? lr_ram_en      : (current_state == MC_NTT)? 0 : (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_en[i]:0;
+      end else begin : g_ram_at_normal
+        assign ram_we[i]   = (mode == ENC)?((current_state == MC_LOAD_RAM) ? lr_ram_we      : (current_state == MC_NTT)? 0:0):0;
+        assign ram_en[i]   = (mode == ENC)?((current_state == MC_LOAD_RAM) ? lr_ram_en      : (current_state == MC_NTT)? 0 : (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_en[i]:0):0;
         assign ram_dina[i] = (current_state == MC_LOAD_RAM) ? lr_ram_dina[i] : (current_state == MC_NTT)? 0:0;
         assign ram_dinb[i] = (current_state == MC_LOAD_RAM) ? lr_ram_dinb[i] : (current_state == MC_NTT)? 0:0;
       end
     end
 
-    // ram signal for tvec
-    for (i = 9; i < 12; i++) begin : g_tvec_ram
-
-      if (i == 9) begin : g_tvec_ram_writeback
+    // ram signal for t_u
+    for (i = 9; i < 12; i++) begin : g_ram_t_s
+      if (i == 9) begin : g_ram_t_s_writeback
         assign ram_we[i]   = (current_state == MC_LOAD_RAM) ? lr_ram_we      : (current_state == MC_NTT)? 0: (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_we[i/3]:(current_state == MC_INV_NTT)? inv_ntt_ram_we[i/3]:0;
         assign ram_en[i]   = (current_state == MC_LOAD_RAM) ? lr_ram_en      : (current_state == MC_NTT)? 0: (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_en[i]:(current_state == MC_INV_NTT)? inv_ntt_ram_en[i/3]:0;
         assign ram_dina[i] = (current_state == MC_LOAD_RAM) ? lr_ram_dina[i] : (current_state == MC_NTT)? 0: (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_dina :(current_state == MC_INV_NTT)? inv_ntt_ram_dina:0;
         assign ram_dinb[i] = (current_state == MC_LOAD_RAM) ? lr_ram_dinb[i] : (current_state == MC_NTT)? 0: (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_dinb :(current_state == MC_INV_NTT)? inv_ntt_ram_dinb:0;
 
-      end else begin : g_tvec_ram_normal
+      end else begin : g_ram_t_s_normal
         assign ram_we[i]   = (current_state == MC_LOAD_RAM) ? lr_ram_we      : (current_state == MC_NTT)? 0:0;
         assign ram_en[i]   = (current_state == MC_LOAD_RAM) ? lr_ram_en      : (current_state == MC_NTT)? 0:(current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_en[i]:0;
         assign ram_dina[i] = (current_state == MC_LOAD_RAM) ? lr_ram_dina[i] : (current_state == MC_NTT)? 0:0;
@@ -167,7 +167,7 @@ module main_computation (
     end
 
     // ram r does not need write back since it never write back
-    for (i = 12; i < 15; i++) begin : g_r_ram
+    for (i = 12; i < 15; i++) begin : g_ram_r_u
       assign ram_we[i]   = (current_state == MC_LOAD_RAM) ? lr_ram_we      : (current_state == MC_NTT)? ntt_ram_we[i-12]:0;
       assign ram_en[i]   = (current_state == MC_LOAD_RAM) ? lr_ram_en      : (current_state == MC_NTT)? ntt_ram_en[i-12]: (current_state == MC_POLYVEC_BASEMUL)? pvbm_ram_en[i]:0;
       assign ram_dina[i] = (current_state == MC_LOAD_RAM) ? lr_ram_dina[i] : (current_state == MC_NTT)? ntt_ram_dina:0;
@@ -243,9 +243,9 @@ module main_computation (
 
   logic [2 * KYBER_POLY_WIDTH - 1:0] ntt_ram_read_data_a;
   logic [2 * KYBER_POLY_WIDTH - 1:0] ntt_ram_read_data_b;
-  assign ntt_ram_read_data_a = (ntt_mode == NTT)?(ntt_current_state == MC_NTT_R0)? ram_douta[12]: (ntt_current_state == MC_NTT_R1)? ram_douta[13] : ram_douta[14]:
+  assign ntt_ram_read_data_a = (ntt_mode == NTT)?(ntt_current_state == MC_NTT_0)? ram_douta[12]: (ntt_current_state == MC_NTT_1)? ram_douta[13] : ram_douta[14]:
     (inv_ntt_current_state == MC_INV_NTT_AT0)? ram_douta[0] : (inv_ntt_current_state == MC_INV_NTT_AT1)? ram_douta[3] : (inv_ntt_current_state == MC_INV_NTT_AT2)? ram_douta[6]: ram_douta[9];
-  assign ntt_ram_read_data_b = (ntt_mode == NTT)?(ntt_current_state == MC_NTT_R0)? ram_doutb[12]: (ntt_current_state == MC_NTT_R1)? ram_doutb[13] : ram_doutb[14]:
+  assign ntt_ram_read_data_b = (ntt_mode == NTT)?(ntt_current_state == MC_NTT_0)? ram_doutb[12]: (ntt_current_state == MC_NTT_1)? ram_doutb[13] : ram_doutb[14]:
     (inv_ntt_current_state == MC_INV_NTT_AT0)? ram_doutb[0] : (inv_ntt_current_state == MC_INV_NTT_AT1)? ram_doutb[3] : (inv_ntt_current_state == MC_INV_NTT_AT2)? ram_doutb[6]: ram_doutb[9];
 
   // output from ntt module waiting to wring back to RAMS
@@ -334,9 +334,9 @@ module main_computation (
     for (i = 0; i < 3; i++) begin : g_pvbm_signal
       // connect the first operand base on pvbm_current_state
       assign pvbm_ram0_read_data_a[i] = (pvbm_current_state == MC_PVBM_AT0)? ram_douta[i]: (pvbm_current_state == MC_PVBM_AT1)? ram_douta[i+3]: (pvbm_current_state == MC_PVBM_AT2)? ram_douta[i+6]: (
-      pvbm_current_state == MC_PVBM_TVEC)? ram_douta[i+9]:0;
+      pvbm_current_state == MC_PVBM_T_S)? ram_douta[i+9]:0;
       assign pvbm_ram0_read_data_b[i] = (pvbm_current_state == MC_PVBM_AT0)? ram_doutb[i]: (pvbm_current_state == MC_PVBM_AT1)? ram_doutb[i+3]: (pvbm_current_state == MC_PVBM_AT2)? ram_doutb[i+6]: (
-      pvbm_current_state == MC_PVBM_TVEC)? ram_doutb[i+9]:0;
+      pvbm_current_state == MC_PVBM_T_S)? ram_doutb[i+9]:0;
 
       // always connect ram1 to r (second operand) : since everything multiply by r
       assign pvbm_ram1_read_data_a[i] = ram_douta[i+12];
@@ -376,52 +376,25 @@ module main_computation (
   // Combinational block for Main Computations
   always_comb begin
     // Default state
-    valid = 0;
-    lr_start = 0;
-    ntt_start = 0;
-    pvbm_start = 0;
-    inv_ntt_start = 0;
-
     next_state = MC_IDLE;
-    case (current_state)
-      MC_IDLE:
-      if (enable) begin
-        next_state = MC_LOAD_RAM;
-        lr_start   = 1;
-      end
+    unique case (current_state)
+      MC_IDLE: if (enable) next_state = MC_LOAD_RAM;
       MC_LOAD_RAM: begin
         next_state = MC_LOAD_RAM;
-        if (lr_done) begin
-          next_state = MC_NTT;
-          ntt_start  = 1;
-        end
+        if (lr_done) next_state = MC_NTT;
       end
       MC_NTT: begin
         next_state = MC_NTT;
-        if (ntt_done) begin
-
-          next_state = MC_POLYVEC_BASEMUL;
-          pvbm_start = 1;
-        end
+        if (ntt_done) next_state = MC_POLYVEC_BASEMUL;
       end
-
       MC_POLYVEC_BASEMUL: begin
         next_state = MC_POLYVEC_BASEMUL;
-        if (pvbm_done) begin
-          next_state = MC_INV_NTT;
-          inv_ntt_start = 1;
-        end
+        if (pvbm_done) next_state = MC_INV_NTT;
       end
-
       MC_INV_NTT: begin
         next_state = MC_INV_NTT;
-        if (inv_ntt_done) begin
-          next_state = MC_IDLE;
-          valid = 1;
-        end
+        if (inv_ntt_done) next_state = MC_IDLE;
       end
-
-      default: next_state = MC_IDLE;
     endcase
   end
 
@@ -430,16 +403,19 @@ module main_computation (
     if (reset) begin
       current_state <= MC_IDLE;
     end else begin
+      valid <= 0;
+      lr_start <= 0;
+      ntt_start <= 0;
+      pvbm_start <= 0;
+      inv_ntt_start <= 0;
       current_state <= next_state;
-      if (mode == ENC) begin
-        unique case (current_state)
-          MC_IDLE: ;
-          MC_LOAD_RAM: ;
-          MC_NTT: ;
-          MC_POLYVEC_BASEMUL: ;
-          MC_INV_NTT: ;
-        endcase
-      end
+      unique case (current_state)
+        MC_IDLE: if (enable) lr_start <= 1;
+        MC_LOAD_RAM: if (lr_done) ntt_start <= 1;
+        MC_NTT: if (ntt_done) pvbm_start <= 1;
+        MC_POLYVEC_BASEMUL: if (pvbm_done) inv_ntt_start <= 1;
+        MC_INV_NTT: if (inv_ntt_done) valid <= 1;
+      endcase
     end
   end
 
@@ -457,6 +433,7 @@ module main_computation (
 
   generate
     // first track the index of net list in (mostly treat as 1D array size 256)
+    //
     // iterate 4 indices per round = 2 ram_addr(a, b);
     for (i = 0; i < 4; i++) begin : g_parallel_in_addr
       assign lr_net_in_index[i] = (lr_ram_addra * 2) + i;
@@ -480,8 +457,8 @@ module main_computation (
 
     // assign for error polynomial r
     for (i = 0; i < 3; i++) begin : g_lr_din_r
-      assign lr_ram_dina[i+12] = {r[i][lr_net_in_index[1]], r[i][lr_net_in_index[0]]};
-      assign lr_ram_dinb[i+12] = {r[i][lr_net_in_index[3]], r[i][lr_net_in_index[2]]};
+      assign lr_ram_dina[i+12] = {r_u[i][lr_net_in_index[1]], r_u[i][lr_net_in_index[0]]};
+      assign lr_ram_dinb[i+12] = {r_u[i][lr_net_in_index[3]], r_u[i][lr_net_in_index[2]]};
     end
   endgenerate
 
@@ -547,33 +524,33 @@ module main_computation (
     unique case (ntt_current_state)
       MC_NTT_IDLE: begin
         if (ntt_start) begin
-          ntt_next_state = MC_NTT_R0;
+          ntt_next_state = MC_NTT_0;
           ntt_enable = 1;
         end
       end
 
-      MC_NTT_R0: begin
-        ntt_next_state = MC_NTT_R0;
+      MC_NTT_0: begin
+        ntt_next_state = MC_NTT_0;
         ntt_ram_we[0]  = ntt_ram_we_predec;
         ntt_ram_en[0]  = ntt_ram_en_predec;
         if (ntt_valid) begin
-          ntt_next_state = MC_NTT_R1;
+          ntt_next_state = MC_NTT_1;
           ntt_enable = 1;
         end
       end
 
-      MC_NTT_R1: begin
-        ntt_next_state = MC_NTT_R1;
+      MC_NTT_1: begin
+        ntt_next_state = MC_NTT_1;
         ntt_ram_we[1]  = ntt_ram_we_predec;
         ntt_ram_en[1]  = ntt_ram_en_predec;
         if (ntt_valid) begin
-          ntt_next_state = MC_NTT_R2;
+          ntt_next_state = MC_NTT_2;
           ntt_enable = 1;
         end
       end
 
-      MC_NTT_R2: begin
-        ntt_next_state = MC_NTT_R2;
+      MC_NTT_2: begin
+        ntt_next_state = MC_NTT_2;
         ntt_ram_we[2]  = ntt_ram_we_predec;
         ntt_ram_en[2]  = ntt_ram_en_predec;
         if (ntt_valid) begin
@@ -604,8 +581,17 @@ module main_computation (
     case (pvbm_current_state)
       MC_PVBM_IDLE: begin
         if (pvbm_start) begin
-          pvbm_next_state = MC_PVBM_AT0;
-          pvbm_enable = 1;
+          unique case (mode)
+            ENC: begin
+              pvbm_next_state = MC_PVBM_AT0;
+              pvbm_enable = 1;
+            end
+
+            DEC: begin
+              pvbm_next_state = MC_PVBM_T_S;
+              pvbm_enable = 1;
+            end
+          endcase
         end
       end
       MC_PVBM_AT0: begin
@@ -646,12 +632,12 @@ module main_computation (
         pvbm_ram_we[2]  = pvbm_ram_we_predec;
         if (pvbm_valid) begin
           pvbm_enable = 1;
-          pvbm_next_state = MC_PVBM_TVEC;
+          pvbm_next_state = MC_PVBM_T_S;
         end
       end
 
-      MC_PVBM_TVEC: begin
-        pvbm_next_state = MC_PVBM_TVEC;
+      MC_PVBM_T_S: begin
+        pvbm_next_state = MC_PVBM_T_S;
         pvbm_ram_en[9]  = pvbm_ram_en_predec;
         pvbm_ram_en[10] = pvbm_ram_en_predec;
         pvbm_ram_en[11] = pvbm_ram_en_predec;
@@ -686,8 +672,16 @@ module main_computation (
     unique case (inv_ntt_current_state)
       MC_INV_NTT_IDLE:
       if (inv_ntt_start) begin
-        inv_ntt_enable = 1;
-        inv_ntt_next_state = MC_INV_NTT_AT0;
+        unique case (mode)
+          ENC: begin
+            inv_ntt_enable = 1;
+            inv_ntt_next_state = MC_INV_NTT_AT0;
+          end
+          DEC: begin
+            inv_ntt_enable = 1;
+            inv_ntt_next_state = MC_INV_NTT_T_S;
+          end
+        endcase
       end
       MC_INV_NTT_AT0: begin
         inv_ntt_next_state = MC_INV_NTT_AT0;
@@ -713,11 +707,11 @@ module main_computation (
         inv_ntt_ram_we[2]  = ntt_ram_we_predec;
         if (inv_ntt_valid) begin
           inv_ntt_enable = 1;
-          inv_ntt_next_state = MC_INV_NTT_TVEC;
+          inv_ntt_next_state = MC_INV_NTT_T_S;
         end
       end
-      MC_INV_NTT_TVEC: begin
-        inv_ntt_next_state = MC_INV_NTT_TVEC;
+      MC_INV_NTT_T_S: begin
+        inv_ntt_next_state = MC_INV_NTT_T_S;
         inv_ntt_ram_en[3]  = ntt_ram_en_predec;
         inv_ntt_ram_we[3]  = ntt_ram_we_predec;
         if (inv_ntt_valid) begin
@@ -768,12 +762,12 @@ module main_computation (
             u[2][wo_addrb[1]] = $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
           end
         end
-        MC_INV_NTT_TVEC: begin
+        MC_INV_NTT_T_S: begin
           if (ntt_ram_we_predec) begin
-            v[wo_addra[0]] = $signed(inv_ntt_ram_dina[`LOWER_BITS]);
-            v[wo_addra[1]] = $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
-            v[wo_addrb[0]] = $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
-            v[wo_addrb[1]] = $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
+            v_a[wo_addra[0]] = $signed(inv_ntt_ram_dina[`LOWER_BITS]);
+            v_a[wo_addra[1]] = $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
+            v_a[wo_addrb[0]] = $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
+            v_a[wo_addrb[1]] = $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
           end
         end
         MC_INV_NTT_DONE: ;
