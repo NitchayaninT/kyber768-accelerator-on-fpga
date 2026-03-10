@@ -69,10 +69,10 @@ module encryption_top (
       .enable(pre_enc_done),  // start main computation when pre-encryption is done
       .mode(0),
       .a_t(a_t),
-      .t_vec(t_vec),
-      .r(r),
+      .t_s(t_vec),
+      .r_u(r),
       .u(x),  // signed
-      .v(y),  // signed
+      .v_a(y),  // signed
       .valid(main_comp_done)
   );
 
