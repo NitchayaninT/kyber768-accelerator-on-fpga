@@ -110,6 +110,7 @@ module pre_encryption (
   always @(posedge clk) begin
     if (rst) begin
       coin  <= 'd0;
+      noise_gen_valid <= 1'b0;
       pre_k <= 'd0;
     end else begin
       if (sha3_valid[2]) begin

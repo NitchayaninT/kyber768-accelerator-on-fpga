@@ -1,5 +1,6 @@
 // NOTE : this is the old version of TB does not work with current hdl
 `timescale 1ns / 1ps
+`define DELAY 3
 import params_pkg::*;
 
 module pre_encryption_tb;
@@ -41,10 +42,7 @@ module pre_encryption_tb;
     $dumpvars(0, pre_encryption_tb);
     //$monitor("total byte index : %d, msg len bytes %d, absorb byte : %h",pre_encryption_uut.sha3_uut3.total_bytes_index,pre_encryption_uut.sha3_uut3.msg_len_bytes, pre_encryption_uut.sha3_uut3.absorb_byte);
     //$monitor("phase : %d, rate_block: %h, state reg 512 : %h",pre_encryption_uut.sha3_uut3.phase,pre_encryption_uut.sha3_uut3.rate_block,  pre_encryption_uut.sha3_uut3.state_reg);
-    $monitor("shake enable : %d, coin = %h, noise stream = %h rate block = %h\n",
-             pre_encryption_uut.ng_uut.shake_enable, pre_encryption_uut.ng_uut.coin,
-             pre_encryption_uut.ng_uut.noise_stream,
-             pre_encryption_uut.ng_uut.shake256_coin.rate_block);
+  
     clk = 0;
     forever #(`DELAY / 2) clk = ~clk;
   end

@@ -22,15 +22,15 @@ module encryption_top (
   logic signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1];
   reg [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3];
   reg [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1];
-  logic signed [KYBER_POLY_WIDTH-1 : 0] msg_poly[0:KYBER_N-1];
+  logic signed [KYBER_POLY_WIDTH-1 : 0] msg_poly [0:KYBER_N-1];
   logic signed [15:0] x[0:2][0:255];
   logic signed [15:0] y[0:255];
   logic signed [15:0] u[0:2][0:255];
   logic signed [15:0] v[0:255];
   logic signed [15:0] y_add_e2[0:255];
 
-  logic signed [11:0] out_u[0:2][0:255];
-  logic signed [11:0] out_v[0:255];
+  logic [11:0] out_u[0:2][0:255];
+  logic [11:0] out_v[0:255];
   logic [7:0] c1[0:959];  // 960 bytes
   logic [7:0] c2[0:127];  // 128 bytes
 
@@ -109,15 +109,15 @@ module encryption_top (
       .enable(main_comp_done),  // start reduce when addition is done
       .u(u),
       .v(v),
-      .out_u(out_u),  // store reduced u 
-      .out_v(out_v),  // store reduced v 
+      .out_u(out_u),  // store reduced u (not signed)
+      .out_v(out_v),  // store reduced v (not signed)
       .reduce_done(reduce_done)
   );
 
   compress_encode #(
       .Q(KYBER_Q)
   ) compress_encode (
-      .enable       (enable),
+      .enable       (reduce_done),  // start compression when reduction is done
       .rst          (rst),
       .clk          (clk),
       .u            (out_u),
@@ -129,10 +129,12 @@ module encryption_top (
 
   post_encryption post_encryption_uut (
       .clk(clk),
-      .enable(start),  // start post-encryption when pre-encryption is done
-      .prek_enable(start),  // start hashing pre-k when pre-encryption is done
+      .enable(compress_done),  // start post-encryption when pre-encryption is done
+      .prek_enable(pre_enc_done),  // start hashing pre-k when pre-encryption is done
       .rst(rst),
       .pre_k(pre_k),
+      .c1_in(c1),
+      .c2_in(c2),
       .ct(ct_out),
       .ss(ss1),
       .encrypt_done(encrypt_done)

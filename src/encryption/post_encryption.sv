@@ -1,4 +1,4 @@
-`include "params.vh"
+import params_pkg::*;
 // *** POST ENCRYPTION MODULE *** //
 /*
 - Inputs : Ciphertext poly c1, c2 and pre_k (256)  
@@ -14,11 +14,11 @@ module post_encryption(
     input enable, // when ct input is available
     input prek_enable, // when pre_k input is available
     input rst,
-    input  [`KYBER_N - 1:0] pre_k,
+    input  [KYBER_N - 1:0] pre_k,
     input [7:0]  c1_in [0:959], // 960 bytes
     input [7:0]  c2_in [0:127], // 128 bytes
     output logic [8703:0] ct, // ciphertext stream (c1,c2)
-    output logic [`KYBER_N - 1:0] ss, // shared secret
+    output logic [KYBER_N - 1:0] ss, // shared secret
     output reg encrypt_done
 );
 

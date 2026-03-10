@@ -45,7 +45,7 @@ module polyvec_basemul_montgomery (
     for (g = 0; g < 3; g++) begin : g_poly_basemul_montgomery
       poly_basemul_montgomery pbm (
           .clk(clk),
-          .start(basemul_start),
+          .start(basemul_start), 
           .poly_a0(ram0_read_data_a[g]),
           .poly_b0(ram1_read_data_a[g]),
           .poly_a1(ram0_read_data_b[g]),
