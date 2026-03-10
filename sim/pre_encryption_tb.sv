@@ -1,52 +1,54 @@
+// NOTE : this is the old version of TB does not work with current hdl
 `timescale 1ns / 1ps
-`include "params.vh"
+`define DELAY 3
+import params_pkg::*;
 
 module pre_encryption_tb;
-    reg clk;
-    reg start;
-    reg rst;
-    reg [`KYBER_N - 1:0] r_in;
-    reg  [(`KYBER_N)+(`KYBER_K * `KYBER_RQ_WIDTH * `KYBER_N)-1:0]  encryption_key;
-    wire [`KYBER_POLY_WIDTH-1:0] e2 [0:`KYBER_N-1];
-    wire [`KYBER_POLY_WIDTH-1:0] e1 [0:`KYBER_K-1][0:`KYBER_N-1];
-    wire [`KYBER_POLY_WIDTH-1:0] r [0:`KYBER_K-1][0:`KYBER_N-1];
-    wire [(`KYBER_N * `KYBER_RQ_WIDTH)-1:0] t_vec [3];
-    wire  [`KYBER_POLY_WIDTH-1 : 0] a_t [0:(`KYBER_K*`KYBER_K)-1][0:`KYBER_N-1];
-    wire [(`KYBER_RQ_WIDTH * `KYBER_N)- 1 : 0] msg_poly;
-    wire [`KYBER_N - 1:0] pre_k;
-    wire valid;
+  reg clk;
+  reg start;
+  reg rst;
+  reg [KYBER_N - 1:0] r_in;
+  reg [(KYBER_N)+(KYBER_K * KYBER_RQ_WIDTH * KYBER_N)-1:0] encryption_key;
+  wire signed [KYBER_POLY_WIDTH-1:0] e2[0:KYBER_N-1];
+  wire signed [KYBER_POLY_WIDTH-1:0] e1[0:KYBER_K-1][0:KYBER_N-1];
+  wire signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1];
+  wire signed [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3];
+  wire signed [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1];
+  wire signed [(KYBER_RQ_WIDTH * KYBER_N)- 1 : 0] msg_poly;
+  wire [KYBER_N - 1:0] pre_k;
+  wire valid;
 
-    reg [15:0] coeff;
-    reg [11:0] coeff_12;
+  reg [15:0] coeff;
+  reg [11:0] coeff_12;
 
-    pre_encryption pre_encryption_uut (
-        .clk           (clk),
-        .start         (start),
-        .rst           (rst),
-        .r_in          (r_in),
-        .encryption_key(encryption_key),
-        .e2            (e2),
-        .e1            (e1),
-        .r             (r),
-        .t_vec         (t_vec),
-        .a_t           (a_t),
-        .msg_poly      (msg_poly),
-        .pre_k         (pre_k),
-        .valid         (valid)
-    );  
+  pre_encryption pre_encryption_uut (
+      .clk           (clk),
+      .start         (start),
+      .rst           (rst),
+      .r_in          (r_in),
+      .encryption_key(encryption_key),
+      .e2            (e2),
+      .e1            (e1),
+      .r             (r),
+      .t_vec         (t_vec),
+      .a_t           (a_t),
+      .msg_poly      (msg_poly),
+      .pre_k         (pre_k),
+      .valid         (valid)
+  );
 
-initial begin
+  initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, pre_encryption_tb);
     //$monitor("total byte index : %d, msg len bytes %d, absorb byte : %h",pre_encryption_uut.sha3_uut3.total_bytes_index,pre_encryption_uut.sha3_uut3.msg_len_bytes, pre_encryption_uut.sha3_uut3.absorb_byte);
     //$monitor("phase : %d, rate_block: %h, state reg 512 : %h",pre_encryption_uut.sha3_uut3.phase,pre_encryption_uut.sha3_uut3.rate_block,  pre_encryption_uut.sha3_uut3.state_reg);
-    $monitor("shake enable : %d, coin = %h, noise stream = %h rate block = %h\n", pre_encryption_uut.ng_uut.shake_enable,pre_encryption_uut.ng_uut.coin,pre_encryption_uut.ng_uut.noise_stream,pre_encryption_uut.ng_uut.shake256_coin.rate_block);
+  
     clk = 0;
     forever #(`DELAY / 2) clk = ~clk;
-end
+  end
 
-integer i,j,k;
-initial begin
+  integer i, j, k;
+  initial begin
     // -- INPUT -- //
     rst = 1;
     r_in = 256'hf8f11229044dfea54ddc214aaa439e7ea06b9b4ede8a3e3f6dfef500c9665598;
@@ -55,19 +57,19 @@ initial begin
     // Release reset to start loading state_reg, done, etc
     #(`DELAY) rst = 0;
     #(`DELAY) start = 1;
-    
-    wait(pre_encryption_uut.sha3_valid[0]);
+
+    wait (pre_encryption_uut.sha3_valid[0]);
     $display("m = %h", pre_encryption_uut.msg);
-    wait(pre_encryption_uut.sha3_valid[1]);
+    wait (pre_encryption_uut.sha3_valid[1]);
     $display("hash_ek = %h", pre_encryption_uut.hash_ek);
-    wait(pre_encryption_uut.sha512_valid);
+    wait (pre_encryption_uut.sha512_valid);
     $display("buf0 = %h", pre_encryption_uut.buf0);
-    wait(pre_encryption_uut.noise_gen_valid);
+    wait (pre_encryption_uut.noise_gen_valid);
     $display("buf1(kr) = %h", pre_encryption_uut.buf1);
     $display("coin = %h", pre_encryption_uut.coin);
     $display("pre_k = %h", pre_encryption_uut.pre_k);
     $display("t0_first48bits = %h", pre_encryption_uut.t_vec[0][47:0]);
-    
+
 
     wait (valid == 1'b1);
 
@@ -75,69 +77,70 @@ initial begin
 
     // Display T_trans
     $display("T_TRANS POLYS VECTOR");
-    for (j=0 ; j<3; j++) begin
-        $display("=== t_vec Poly %0d ===", j);
-        for (i = 0; i < 256; i++) begin
-            // pack 16 unpacked bits into a packed vector
-            coeff_12 = t_vec[j][i*12 +: 12];
-            $write("%0d ", coeff_12);
-            if ((i % 16) == 15) $write("\n");
-        end
-        $write("\n");
+    for (j = 0; j < 3; j++) begin
+      $display("=== t_vec Poly %0d ===", j);
+      for (i = 0; i < 256; i++) begin
+        // pack 16 unpacked bits into a packed vector
+        coeff_12 = t_vec[j][i*12+:12];
+        $write("%0d ", coeff_12);
+        if ((i % 16) == 15) $write("\n");
+      end
+      $write("\n");
     end
     // Display msg poly
     $display("MSG POLY");
-    for(i = 0; i<256; i++) begin
-        coeff_12 = msg_poly[i*12 +: 12];
-        $write("%0d ", coeff_12);
-        if ((i % 16) == 15) $write("\n");
+    for (i = 0; i < 256; i++) begin
+      coeff_12 = msg_poly[i*12+:12];
+      $write("%0d ", coeff_12);
+      if ((i % 16) == 15) $write("\n");
     end
     $write("\n");
     // Display public matrix
     $display("PUBLIC MATRIX POLYS");
     for (j = 0; j < 9; j++) begin
-        $display("=== Poly %0d ===", j);
-        for (i = 0; i < 256; i++) begin
-            // pack 16 unpacked bits into a packed vector
-            coeff = a_t[j][i];
-            $write("%0d ", coeff);
-            if ((i % 16) == 15) $write("\n");
-        end
-        $write("\n");
+      $display("=== Poly %0d ===", j);
+      for (i = 0; i < 256; i++) begin
+        // pack 16 unpacked bits into a packed vector
+        coeff = a_t[j][i];
+        $write("%0d ", coeff);
+        if ((i % 16) == 15) $write("\n");
+      end
+      $write("\n");
     end
 
     $display("NOISE POLYS");
-     for (j=0; j<3; j++) begin
-        $display("=== r %0d ===", j);
-        for (i = 0; i < 256; i++) begin
-            // pack 16 unpacked bits into a packed vector
-            coeff = r[j][i];
-            $write("%0d ", coeff);
-            if ((i % 16) == 15) $write("\n");
-        end
-        $write("\n");
+    for (j = 0; j < 3; j++) begin
+      $display("=== r %0d ===", j);
+      for (i = 0; i < 256; i++) begin
+        // pack 16 unpacked bits into a packed vector
+        coeff = r[j][i];
+        $write("%0d ", coeff);
+        if ((i % 16) == 15) $write("\n");
+      end
+      $write("\n");
     end
 
-    for (k=0; k<3; k++) begin
-        $display("=== e1 %0d ===", k);
-        for (i = 0; i < 256; i++) begin
-            // pack 16 unpacked bits into a packed vector
-            coeff = e1[k][i];
-            $write("%0d ", coeff);
-            if ((i % 16) == 15) $write("\n");
-        end
-        $write("\n");
+    for (k = 0; k < 3; k++) begin
+      $display("=== e1 %0d ===", k);
+      for (i = 0; i < 256; i++) begin
+        // pack 16 unpacked bits into a packed vector
+        coeff = e1[k][i];
+        $write("%0d ", coeff);
+        if ((i % 16) == 15) $write("\n");
+      end
+      $write("\n");
     end
 
 
     $display("=== e2 ===");
     for (i = 0; i < 256; i++) begin
-        // pack 16 unpacked bits into a packed vector
-        coeff = e2[i];
-        $write("%0d ", coeff);
-        if ((i % 16) == 15) $write("\n");
+      // pack 16 unpacked bits into a packed vector
+      coeff = e2[i];
+      $write("%0d ", coeff);
+      if ((i % 16) == 15) $write("\n");
     end
     $write("\n");
 
- end
+  end
 endmodule
+

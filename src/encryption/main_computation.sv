@@ -60,8 +60,8 @@ module main_computation (
     input main_compute_mode_e mode,  // 0 = enc, 1 = dec
 
     input [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1],
-    input [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_s[3],  // encryption store t and decryption store s
-    input [KYBER_POLY_WIDTH-1:0] r_u[0:KYBER_K-1][0:KYBER_N-1], // encryption store r, decryption store u
+    input signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1],
+    input [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3],
 
     // output signal for compatibilty with other module passing netlist
     output logic signed [KYBER_POLY_WIDTH-1:0] u[0:KYBER_K-1][0:KYBER_N-1],

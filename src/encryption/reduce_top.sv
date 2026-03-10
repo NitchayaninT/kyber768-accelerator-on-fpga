@@ -1,7 +1,7 @@
 // Reduce top, which takes in u and v from Addition
 // this control module will feed u and v into the reduce module one at a time, and store the reduced output for post-encryption
 `timescale 1ns / 1ps
-`include "params.vh"
+import params_pkg::*;
 module reduce_top (
     input clk,
     input rst,
