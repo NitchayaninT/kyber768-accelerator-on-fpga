@@ -147,4 +147,3 @@ module noise_gen (
     end
   end
 endmodule
-
