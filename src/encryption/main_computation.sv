@@ -53,6 +53,7 @@ typedef enum logic [2:0] {
 // 1. a_t   -> BRAM 0-8
 // 2. t_vec -> BRAM 9-11
 // 3. r     -> BRAM 12-14
+
 module main_computation (
     input clk,
     input enable,
@@ -60,10 +61,10 @@ module main_computation (
     input main_compute_mode_e mode,  // 0 = enc, 1 = dec
 
     input [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1],
-    input signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1],
-    input [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3],
+    input signed [KYBER_POLY_WIDTH-1:0] r_u[0:KYBER_K-1][0:KYBER_N-1],
+    input [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_s[3],
 
-    // output signal for compatibilty with other module passing netlist
+    // output signal for compatibility with other module passing netlist
     output logic signed [KYBER_POLY_WIDTH-1:0] u[0:KYBER_K-1][0:KYBER_N-1],
     output logic signed [KYBER_POLY_WIDTH-1:0] v_a[0:KYBER_N-1],
     output logic valid
