@@ -88,7 +88,7 @@ module pre_encryption (
       .done(sha3_valid[1])
   );
 
-  // 2.5 Concatenate hash(ek) || msg. msg is at higher bits
+  // 2.5 Concatenate hash(ek) || msg. msg is at lower bits
   always_comb begin
     sha512_valid = sha3_valid[0] & sha3_valid[1];
     if (sha512_valid) buf0 = {hash_ek, msg};

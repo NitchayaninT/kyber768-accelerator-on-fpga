@@ -52,6 +52,51 @@ end
     // wait a cycle, then pulse start
     repeat (2) @(posedge clk);
     start = 1;
+    wait(encryption_top.pre_enc_done == 1);
+    $display("Public Matrix At");
+    for (j = 0; j < 9; j++) begin
+      $display("=== Poly %0d ===", j);
+      for (i = 0; i < 256; i++) begin
+        // pack 16 unpacked bits into a packed vector
+        coeff = encryption_top.a_t[j][i];
+        $write("%0d ", coeff);
+        if ((i % 16) == 15) $write("\n");
+      end
+      $write("\n");
+    end
+
+    $display("NOISE POLYS");
+    for (j = 0; j < 3; j++) begin
+      $display("=== r %0d ===", j);
+      for (i = 0; i < 256; i++) begin
+        // pack 16 unpacked bits into a packed vector
+        coeff = encryption_top.r[j][i];
+        $write("%0d ", coeff);
+        if ((i % 16) == 15) $write("\n");
+      end
+      $write("\n");
+    end
+
+    for (j = 0; j < 3; j++) begin
+      $display("=== e1 %0d ===", j);
+      for (i = 0; i < 256; i++) begin
+        // pack 16 unpacked bits into a packed vector
+        coeff = encryption_top.e1[j][i];
+        $write("%0d ", coeff);
+        if ((i % 16) == 15) $write("\n");
+      end
+      $write("\n");
+    end
+
+    $display("=== e2 ===");
+    for (i = 0; i < 256; i++) begin
+      // pack 16 unpacked bits into a packed vector
+      coeff = encryption_top.e2[i];
+      $write("%0d ", coeff);
+      if ((i % 16) == 15) $write("\n");
+    end
+    $write("\n");
+    
     wait(encryption_top.compress_done == 1);
    /* $display("X (after main compute)");
     for (j = 0; j < 3; j++) begin
@@ -93,7 +138,7 @@ end
     end
     */
     
-     /*$display("U after reduce to 12 bits");
+     $display("U after reduce to 12 bits");
       for (j = 0; j < 3; j++) begin
       $display("=== u %0d ===", j);
       for (i = 0; i < 256; i++) begin
@@ -110,12 +155,16 @@ end
       coeff = encryption_top.out_v[i];
       $write("%0d ", coeff);
       if ((i % 16) == 15) $write("\n");
-    end*/
+    end
     $display("=== After Compression ===\n");
     $display("ciphertext:\n"); // 1088 bytes (c1 960, c2 128)
 
     $display("c1 (960 bytes):\n");
       for(int i = 0; i < 960; i++) begin
+        if(i % 320 == 0) begin
+            $display();
+            $display("c1-%2d",(i/360)+1);
+          end
         coeff = encryption_top.c1[i];
         $write("%02x ", coeff);
         if((i % 16) == 15) $write("\n");
@@ -131,9 +180,19 @@ end
     wait (encrypt_done == 1);
 
     // display outputs
-    $display("pre-k: %h", pre_k); // pre-k to test with post-decryption
-    $display("ss1: %h", ss1); // shared secret 
-    $display("ct_out: %h", ct_out); // ciphertext stream
+    //$display("pre-k: %h", pre_k); // pre-k to test with post-decryption
+    $display("ss1 :"); // display in C order in order to compare
+    for (i = 0; i < 32; i = i + 1) begin
+        $write("%02x", ss1[(i*8) +: 8]);
+    end
+    $write("\n");
+    
+    $display("ct_out (C order):");
+    for (i = 0; i < 1088; i = i + 1) begin
+        $write("%02x", ct_out[(i*8) +: 8]);
+        if ((i % 32) == 31) $write("\n");
+    end
+    $write("\n");
     $finish;
   end
 endmodule

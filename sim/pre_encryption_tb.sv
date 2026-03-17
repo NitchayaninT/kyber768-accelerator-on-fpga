@@ -14,7 +14,7 @@ module pre_encryption_tb;
   wire signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1];
   wire signed [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3];
   wire signed [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1];
-  wire signed [(KYBER_RQ_WIDTH * KYBER_N)- 1 : 0] msg_poly;
+  wire signed [KYBER_POLY_WIDTH-1 : 0] msg_poly[0:KYBER_N-1];
   wire [KYBER_N - 1:0] pre_k;
   wire valid;
 

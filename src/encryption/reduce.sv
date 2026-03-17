@@ -103,7 +103,7 @@ module reduce#(
                         busy  <= 1'b1;
                     end
                 end
-                // Load input polynomial into internal buffer (1 cycle)
+                // Load input polynomial into poly buffer (1 cycle)
                 LOAD: begin
                     for (i = 0; i < N; i++) begin
                         poly_buf[i] <= in_poly[i];
