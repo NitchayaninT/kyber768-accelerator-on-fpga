@@ -6,7 +6,7 @@ module permutation (
     output [1599:0] state_out,
     output reg valid
 );
-  
+
   reg [4:0] round;
   reg [1599:0] state_buffer;
   wire [1599:0] theta_out;
@@ -16,7 +16,7 @@ module permutation (
   wire [1599:0] iota_out;
 
   // round index for iota (5-bit, sized)
-  wire [4:0] ir_w = round-1;
+  wire [4:0] ir_w = round - 1;
 
   theta theta_uut (
       .state_in (state_buffer),
@@ -40,7 +40,7 @@ module permutation (
   iota iota_uut (
       .state_in(chi_out),
       .state_out(iota_out),
-    .ir(ir_w)
+      .ir(ir_w)
   );
 
   assign state_out = state_buffer;
@@ -65,9 +65,9 @@ module permutation (
         if (round == 24) begin  // ← After 24th round completes
           valid <= 1;
         end
-        end else begin
-          valid <= 1'b1; // hold output and keep valid high
-        end
+      end else begin
+        valid <= 1'b1;  // hold output and keep valid high
+      end
     end
   end
 endmodule
@@ -318,13 +318,13 @@ module iota (
     output [1599:0] state_out
 );
   // Unpack
-  wire [63:0] A_in  [0:24];
-  wire [63:0] A_out [0:24];
+  wire [63:0] A_in [0:24];
+  wire [63:0] A_out[0:24];
 
   genvar j;
   generate
     for (j = 0; j < 25; j = j + 1) begin : unpacking
-      assign A_in[j] = state_in[j*64 +: 64];
+      assign A_in[j] = state_in[j*64+:64];
     end
   endgenerate
 
@@ -333,16 +333,16 @@ module iota (
     input int r;
     begin
       case (r)
-        0:  rc64 = 64'h0000000000000001;
-        1:  rc64 = 64'h0000000000008082;
-        2:  rc64 = 64'h800000000000808A;
-        3:  rc64 = 64'h8000000080008000;
-        4:  rc64 = 64'h000000000000808B;
-        5:  rc64 = 64'h0000000080000001;
-        6:  rc64 = 64'h8000000080008081;
-        7:  rc64 = 64'h8000000000008009;
-        8:  rc64 = 64'h000000000000008A;
-        9:  rc64 = 64'h0000000000000088;
+        0: rc64 = 64'h0000000000000001;
+        1: rc64 = 64'h0000000000008082;
+        2: rc64 = 64'h800000000000808A;
+        3: rc64 = 64'h8000000080008000;
+        4: rc64 = 64'h000000000000808B;
+        5: rc64 = 64'h0000000080000001;
+        6: rc64 = 64'h8000000080008081;
+        7: rc64 = 64'h8000000000008009;
+        8: rc64 = 64'h000000000000008A;
+        9: rc64 = 64'h0000000000000088;
         10: rc64 = 64'h0000000080008009;
         11: rc64 = 64'h000000008000000A;
         12: rc64 = 64'h000000008000808B;
@@ -377,7 +377,7 @@ module iota (
   genvar i;
   generate
     for (i = 0; i < 25; i = i + 1) begin : packing
-      assign state_out[i*64 +: 64] = A_out[i];
+      assign state_out[i*64+:64] = A_out[i];
     end
   endgenerate
 endmodule

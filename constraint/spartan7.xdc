@@ -5,6 +5,7 @@
  
 # Clock signal
 set_property -dict { PACKAGE_PIN H10    IOSTANDARD LVCMOS33 } [get_ports { clk }];
+create_clock -period 10.000 [get_ports { clk }]
  
 # Switches
 #set_property -dict { PACKAGE_PIN K10    IOSTANDARD LVCMOS33 } [get_ports { sw[0] }];#LSB
@@ -74,7 +75,7 @@ set_property -dict { PACKAGE_PIN H10    IOSTANDARD LVCMOS33 } [get_ports { clk }
 #set_property -dict { PACKAGE_PIN M11 IOSTANDARD LVCMOS33 } [get_ports {data[6]}];
 #set_property -dict { PACKAGE_PIN K11 IOSTANDARD LVCMOS33 } [get_ports {data[7]}];
 #set_property -dict { PACKAGE_PIN P4 IOSTANDARD LVCMOS33 } [get_ports {lcd_e}];
-set_property -dict { PACKAGE_PIN M4 IOSTANDARD LVCMOS33 } [get_ports {lcd_rs}];
+#set_property -dict { PACKAGE_PIN M4 IOSTANDARD LVCMOS33 } [get_ports {lcd_rs}];
 #LCD R/W pin is connected to ground by default.No need to assign LCD R/W Pin.
  
 # SPI TFT 0.8 inch
