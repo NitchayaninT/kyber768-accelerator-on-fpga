@@ -28,21 +28,21 @@ void poly_tomsg(uint8_t msg[KYBER_INDCPA_MSGBYTES], poly *a)
 }
 
 */
-`include "params.vh"
+import params_pkg::*;
 module compress_encode_dec (
-    input  logic clk,
-    input  logic rst,
-    input  logic enable,
-    input  logic [`KYBER_RQ_WIDTH-1:0] b [0:`KYBER_N-1],
-    output logic [(`KYBER_N)-1:0] m,
+    input logic clk,
+    input logic rst,
+    input logic enable,
+    input logic [KYBER_RQ_WIDTH-1:0] b[0:KYBER_N-1],
+    output logic [(KYBER_N)-1:0] m,
     output logic done
 );
 
-  function automatic logic roundq(input logic [`KYBER_RQ_WIDTH-1:0] coeff);
+  function automatic logic roundq(input logic [KYBER_RQ_WIDTH-1:0] coeff);
     logic [15:0] t;
     begin
-      t = ({4'b0, coeff} << 1) + (`KYBER_Q/2);
-      roundq = (t / `KYBER_Q) & 1'b1;
+      t = ({4'b0, coeff} << 1) + (KYBER_Q / 2);
+      roundq = (t / KYBER_Q) & 1'b1;
     end
   endfunction
 
@@ -53,10 +53,10 @@ module compress_encode_dec (
       m    <= '0;
       done <= 1'b0;
     end else begin
-      done <= 1'b0;      
+      done <= 1'b0;
       if (enable) begin
-        for (i=0; i<`KYBER_N; i++) begin
-          m[i] <= roundq(b[i]);  
+        for (i = 0; i < KYBER_N; i++) begin
+          m[i] <= roundq(b[i]);
         end
         done <= 1'b1;
       end
