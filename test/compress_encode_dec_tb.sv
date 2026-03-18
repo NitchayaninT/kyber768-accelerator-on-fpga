@@ -1,4 +1,4 @@
-`include "params.vh"
+import params_pkg::*;
 `timescale 1ns / 1ps
 `define DELAY 3
 module compress_encode_dec_tb;
