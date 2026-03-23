@@ -14,7 +14,7 @@ module public_matrix_gen(
     // output 1 poly at a time
     output reg [3:0] public_matrix_poly_index,
     output reg public_matrix_poly_valid,
-    output reg [15:0] A [0:8][0:255] // each coef has 16 bits
+    output reg signed [15:0] A [0:8][0:255] // each coef has 16 bits
 );
 
 // -- Public Matrix Loop Gen -- //

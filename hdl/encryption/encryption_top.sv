@@ -20,8 +20,8 @@ module encryption_top (
   logic signed [KYBER_POLY_WIDTH-1:0] e2[0:KYBER_N-1];
   logic signed [KYBER_POLY_WIDTH-1:0] e1[0:KYBER_K-1][0:KYBER_N-1];
   logic signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1];
-  reg [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3];
-  reg [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1];
+  logic [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3];
+  logic signed [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1];
   logic signed [KYBER_POLY_WIDTH-1 : 0] msg_poly [0:KYBER_N-1];
   logic signed [15:0] x[0:2][0:255];
   logic signed [15:0] y[0:255];

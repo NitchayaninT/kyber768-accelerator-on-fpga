@@ -42,7 +42,7 @@ module pre_encryption (
     output logic signed [KYBER_POLY_WIDTH-1:0] e1[0:KYBER_K-1][0:KYBER_N-1],
     output logic signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1],
     output [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3],
-    output [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1],
+    output signed [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1],
     output logic signed [KYBER_POLY_WIDTH-1 : 0] msg_poly[0:KYBER_N-1],
     output reg [KYBER_N - 1:0] pre_k,
     output reg valid
