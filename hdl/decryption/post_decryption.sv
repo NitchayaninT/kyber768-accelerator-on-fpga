@@ -1,109 +1,155 @@
-// POST INDCPA DECRYPTION MODULE
-/*
-Re-Encrypt the plain text message again and compare new and received ciphertext
-Input : 
-- message 256 bits (32 bytes)
-- pre_k 256 bits (32 bytes)
-- ciphertext c1,c2 (960 bytes + 128 bytes) = 1088 bytes from post-encryption
-    - 7680 bits for c1 (3 polys) = 960 bytes
-    - 1024 bits for c2 (1 poly) = 128 bytes
+`timescale 1ns / 1ps
 
-Output :
-If Ct=Ct', output
-- shared secret 256 bits (32 bytes), ss= shake256(sha3-256(Ct), coin)
-- boolean true/false after comparing with enc's Ct
-
-If Ct!=Ct', output
-- FAKE shared secret 256 bits (32 bytes) = shake256(SHA3-256(ct), pre-k)
-- boolean false
-
-Process :
-1. (c', pre-k') = SHA3-512(pre-k, m)
-2. Ct' = IND-CPA-KyberEncryption(m',PK,c'), from decode PK to after post-encryption
-
-IND-CPA-KyberEncryption(m',PK,c'): 
-    1. Decode PK to get rho
-    2. Decode msg to get msg poly
-    3. Generate noise polynomials using c' as seed
-    4. Generate matrix A from PK
-    5. Main computation to get Ct' = (u', v'):
-    6. Reduce, Compress encode, post-enc
-    7. Output Ct' = (u', v') with coef 10 bits for u' and coef 4 bits for v'
-    8. Compare Ct' with received Ct, if they are the same, 
-    output shared secret = shake256(sha3-256(Ct), coin), else output shared secret = shake256(SHA3-256(ct), pre-k)
-*/
 import params_pkg::*;
-module post_decryption (
+module post_decryption(
     input clk,
+    input enable, // when m_prime input is available
+    input prek_enable, // when pre_k input is available from compress encode
     input rst,
-    input enable,
-    input [KYBER_N-1:0] msg,  // msg from compress encode
-    input [(KYBER_N)+(KYBER_K * KYBER_RQ_WIDTH * KYBER_N)-1:0] encryption_key, // PK from pre-encryption
-    input [KYBER_N - 1:0] pre_k,  // pre-k from pre-decryption
-    input [(1088*8)-1:0] ct,  // ct from encryption
-    output reg [KYBER_N - 1:0] ss,
-    output logic ct_match,  // boolean true/false after comparing with enc's Ct
-    output reg valid
+    input [KYBER_N-1:0] m_prime,
+    input [KYBER_N-1:0] pre_k,
+    input  logic [8703:0] ct,
+    input logic[KYBER_N-1:0]coin,
+    input logic [(KYBER_N * KYBER_RQ_WIDTH * KYBER_K)+KYBER_N-1:0] PK,
+    output reg f,
+    output logic [KYBER_N-1:0] ss,
+    output reg decrypt_done
+);
+reg [2:0] phase;
+localparam PH_IDLE = 3'd0;
+localparam PH_SHA512 = 3'd1;
+localparam PH_ENCRYPT = 3'd2;
+localparam PH_VERIFY = 3'd3;
+localparam PH_SHA256 = 3'd4;
+localparam PH_DONE = 3'd5;
+//(c', pre−k') =SHA512(pre−k, m')
+logic [511:0]  m_prek_reg; // reg before hashing, we concat pre-k and m'
+wire [511:0]  m_prek_hashed;//wire out the output
+// the hashed result in c_prime and pre_k_prime
+logic [255:0] c_prime;
+logic [255:0] pre_k_prime;
+//encrypt again, the output is ct_prime
+wire [8703:0] ct_prime_output;
+logic [8703:0] ct_prime;
+//check if false or true by comparing ct_prime and ct
+//if true, ss = SHAKE265(SHA256(Ct),coin)
+//false, ss = SHAKE265(SHA256(Ct),pre_k_prime)
+logic [511:0]  ct_coin_reg;
+wire [255:0]  ct_hashed;
+
+logic sha256_start,sha512_start,encryption_start,shake_start;
+wire  sha256_valid,sha512_valid,encrypt_valid;
+wire  shake_done;
+wire  [1023:0] shake_out;
+
+assign ss = shake_out[255:0];
+always_ff @(posedge clk or posedge rst) begin
+    if(rst)begin
+        phase <= PH_IDLE;
+        sha512_start <= 1'b0;
+        sha256_start <= 1'b0;
+        shake_start <= 1'b0;
+        encryption_start <= 1'b0;
+        f <= 0;
+        decrypt_done <= 0;
+        m_prek_reg <= 0;
+        ct_prime <= 0;
+        pre_k_prime <= '0;
+        c_prime     <= '0;
+        ct_coin_reg <= '0;
+    end else begin
+        sha512_start <= 1'b0;
+        sha256_start <= 1'b0;
+        shake_start <= 1'b0;
+        encryption_start <= 1'b0;
+        case(phase)
+            PH_IDLE:begin
+                decrypt_done<=0;
+                if(enable&&prek_enable)begin
+                    m_prek_reg <= {pre_k,m_prime};
+                    sha512_start <= 1'b1;
+                    phase <= PH_SHA512;
+                end
+            end
+            PH_SHA512:begin
+                if (sha512_valid) begin
+                    pre_k_prime <=  m_prek_hashed[(KYBER_N-1):0];
+                    c_prime <= m_prek_hashed[(2*KYBER_N)-1:KYBER_N];
+                    encryption_start <= 1'b1;
+                    phase <= PH_ENCRYPT;
+                end
+            end
+            PH_ENCRYPT:begin
+                if (encrypt_valid) begin
+                    ct_prime <= ct_prime_output;
+                    phase <= PH_VERIFY;
+                end
+            end
+            PH_VERIFY:begin
+                f <= (ct_prime == ct);
+                sha256_start <= 1'b1;
+                phase <= PH_SHA256;
+            end
+            PH_SHA256:begin
+                if (sha256_valid) begin
+                    if(f==1'b1)begin
+                        ct_coin_reg <= {ct_hashed,coin};
+                    end else begin
+                        ct_coin_reg <= {ct_hashed,pre_k_prime};    
+                    end
+                    shake_start <= 1'b1;
+                    phase <= PH_DONE;
+                end
+            end
+            PH_DONE:begin
+                if(shake_done)begin
+                    decrypt_done<=1;
+                    phase <= PH_IDLE;
+                end
+            end
+        endcase
+    end
+end
+encryption_top encrypt_post_dec(
+    .clk(clk),
+    .rst(rst),
+    .start(encryption_start),
+    .r_in(),
+    .encryption_key(PK),
+    .m_prime(m_prime),
+    .c_prime(c_prime),
+    .mode(RE_ENC),
+    .pre_k(),
+    .ss1(),
+    .ct_out(ct_prime_output),
+    .encrypt_done(encrypt_valid)
+);
+sha3_512 sha3_512_uut_post_dec (
+  .clk(clk),
+  .enable(sha512_start),
+  .in(m_prek_reg),
+  .input_len(512),
+  .output_string(m_prek_hashed),
+  .done(sha512_valid)
+);
+sha3_256 sha3_256_uut_post_dec (
+  .clk(clk),
+  .enable(sha256_start),
+  .in(ct),
+  .input_len(8704),
+  .output_string(ct_hashed),
+  .done(sha256_valid)
 );
 
-  reg [KYBER_N-1:0] c_prime;
-  reg [KYBER_N-1:0] pre_k_prime;
-  reg [(KYBER_RQ_WIDTH * KYBER_N)-1:0] msg_poly;
-  reg [KYBER_N - 1:0] rho;
-  reg [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3];
-  reg [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1];
-  reg [KYBER_POLY_WIDTH-1:0] e2[0:KYBER_N-1];
-  reg [KYBER_POLY_WIDTH-1:0] e1[0:KYBER_K-1][0:KYBER_N-1];
-  reg [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1];
-  reg sha3_valid;
-  reg public_matrix_valid;
-  reg public_matrix_done;
-  reg noise_gen_valid;
-  reg noise_done;
-
-  // 1. (c', pre-k') = SHA3-512(pre-k, m)
-  sha3_512 sha3_512_uut (
-      .clk(clk),
-      .enable(enable),
-      .rst(rst),
-      .in({pre_k, msg}),  // 512 bit input
-      .input_len(512),
-      .output_string({c_prime, pre_k_prime}),  // 512 bit output
-      .done(noise_gen_valid)
-  );
-
-  // 2. Ct' = IND-CPA-KyberEncryption(m',PK,c'), from decode PK to after post-encryption
-  decode_msg dmsg_uut (
-      .msg(msg),
-      .poly_msg(msg_poly)
-  );
-  decode_pk dpk_uut (
-      .public_key(encryption_key),
-      .rho(rho),
-      .t_trans(t_vec),
-      .done(public_matrix_valid)
-  );
-  public_matrix_gen pmg_uut (
-      .clk(clk),
-      .rst(rst),
-      .enable(public_matrix_valid),
-      .seed(rho),
-      .public_matrix_done(public_matrix_done),
-      .public_matrix_poly_index(),
-      .public_matrix_poly_valid(),
-      .A(a_t)
-  );
-
-  noise_gen ng_uut (
-      .clk(clk),
-      .rst(rst),
-      .enable(noise_gen_valid),  // can start noise gen after getting c' and pre-k'
-      .coin(c_prime),  // use c' as seed for noise gen
-      .e2(e2),
-      .e1(e1),
-      .r(r),
-      .noise_done(noise_done)
-  );
-  // Main computation
+shake256 shake256_uut_post_dec (
+  .clk(clk),
+  .enable(shake_start),
+  .rst(rst),
+  .in(ct_coin_reg),
+  .input_len(512),
+  .nonce(8'h00),
+  .output_len(256),
+  .output_string(shake_out),
+  .done(shake_done)
+);
 endmodule
-
