@@ -5,10 +5,6 @@ From Pre-Encryption to Post-Encryption
 `timescale 1ns / 1ps
 import params_pkg::*;
 
-typedef enum logic [0:0] {
-    ENC = 0,
-    RE_ENC = 1
-}input_mode;
 module encryption_top (
     input clk,
     input rst,
@@ -17,7 +13,7 @@ module encryption_top (
     input [(KYBER_N)+(KYBER_K * KYBER_RQ_WIDTH * KYBER_N)-1:0] encryption_key, // public key from keygen
     input [KYBER_N-1:0]m_prime,//for decrypt
     input [KYBER_N-1:0]c_prime,//for decrypt
-    input input_mode mode, // ENC =  0, DEC = 1
+    input int mode, // ENC =  0, DEC = 1
     output [KYBER_N - 1:0] pre_k,  // pre-k for post-decryption
     output [KYBER_N - 1:0] ss1,
     output [(1088*8)-1:0] ct_out,  // 128 bytes for c2

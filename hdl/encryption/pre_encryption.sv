@@ -30,10 +30,7 @@
 // -- FSM --
 // IDLE -> HASH_RIN -> HASH_PK -> HASH_BUF0 -> GEN_PUBLIC_MAT -> GEN_NOISE
 import params_pkg::*;
-typedef enum logic [0:0] {
-    ENC = 0,
-    RE_ENC = 1
-}input_mode;
+
 module pre_encryption (
     input clk,
     input start,
@@ -43,7 +40,7 @@ module pre_encryption (
     input [(KYBER_N)+(KYBER_K * KYBER_RQ_WIDTH * KYBER_N)-1:0] encryption_key,
     input [KYBER_N-1:0]m_prime,//for decrypt
     input [KYBER_N-1:0]c_prime,//for decrypt
-    input input_mode mode,
+    input int mode,
     output logic signed [KYBER_POLY_WIDTH-1:0] e2[0:KYBER_N-1],
     output logic signed [KYBER_POLY_WIDTH-1:0] e1[0:KYBER_K-1][0:KYBER_N-1],
     output logic signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1],
@@ -96,10 +93,10 @@ module pre_encryption (
 
   // 2.5 Concatenate hash(ek) || msg. msg is at lower bits
   always_comb begin
-    if(mode==ENC)sha512_valid = sha3_valid[0] & sha3_valid[1];
-    else if(mode==DEC)sha512_valid = sha3_valid[1];
-    if (sha512_valid&&mode==ENC) buf0 = {hash_ek, msg};
-    else if (sha512_valid&&mode==DEC) buf0 = {hash_ek, m_prime};//for decrypt
+    if(mode==0)sha512_valid = sha3_valid[0] & sha3_valid[1];
+    else if(mode==1)sha512_valid = sha3_valid[1];
+    if (sha512_valid&&mode==0) buf0 = {hash_ek, msg};
+    else if (sha512_valid&&mode==1) buf0 = {hash_ek, m_prime};//for decrypt
     else buf0 = '0;
   end
 
@@ -131,7 +128,7 @@ module pre_encryption (
   // *** indcpa-enc starts from here ***
   // 4. Decode decompress msg
   logic [KYBER_N-1:0] msg_in;
-  assign msg_in = (mode == ENC) ? msg : m_prime;//enc -> generated msg, dec -> m_prime
+  assign msg_in = (mode == 0) ? msg : m_prime;//enc -> generated msg, dec -> m_prime
   decode_msg dmsg_uut (
       .msg(msg_in),
       .poly_msg(msg_poly_packed)
@@ -166,7 +163,7 @@ module pre_encryption (
 
   // 7. Noise Generation
   logic [KYBER_N-1:0] coin_sel;
-  assign coin_sel = (mode == ENC) ? coin : c_prime;
+  assign coin_sel = (mode == 0) ? coin : c_prime;
   noise_gen ng_uut (
       .clk(clk),
       .rst(rst),

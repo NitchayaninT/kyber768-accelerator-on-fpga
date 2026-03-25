@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 
 import params_pkg::*;
+
 module post_decryption(
     input clk,
     input enable, // when m_prime input is available
@@ -93,9 +94,9 @@ always_ff @(posedge clk or posedge rst) begin
             PH_SHA256:begin
                 if (sha256_valid) begin
                     if(f==1'b1)begin
-                        ct_coin_reg <= {ct_hashed,coin};
+                        ct_coin_reg <= {ct_hashed,pre_k_prime};//true
                     end else begin
-                        ct_coin_reg <= {ct_hashed,pre_k_prime};    
+                        ct_coin_reg <= {ct_hashed,coin}; //false   
                     end
                     shake_start <= 1'b1;
                     phase <= PH_DONE;
@@ -104,7 +105,7 @@ always_ff @(posedge clk or posedge rst) begin
             PH_DONE:begin
                 if(shake_done)begin
                     decrypt_done<=1;
-                    phase <= PH_IDLE;
+                   // phase <= PH_IDLE;
                 end
             end
         endcase
@@ -118,7 +119,7 @@ encryption_top encrypt_post_dec(
     .encryption_key(PK),
     .m_prime(m_prime),
     .c_prime(c_prime),
-    .mode(RE_ENC),
+    .mode(1),
     .pre_k(),
     .ss1(),
     .ct_out(ct_prime_output),
