@@ -1,0 +1,8 @@
+{
+  "index": [
+    {
+      "dirs": ["hdl", "test", "constraint"],
+      "excludeDirs": ["archive", "old_modules", "reports"]
+    }
+  ]
+}
