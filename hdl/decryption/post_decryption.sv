@@ -5,7 +5,6 @@ import params_pkg::*;
 module post_decryption(
     input clk,
     input enable, // when m_prime input is available
-    input prek_enable, // when pre_k input is available from compress encode
     input rst,
     input [KYBER_N-1:0] m_prime,
     input [KYBER_N-1:0] pre_k,
@@ -66,7 +65,7 @@ always_ff @(posedge clk or posedge rst) begin
         case(phase)
             PH_IDLE:begin
                 decrypt_done<=0;
-                if(enable&&prek_enable)begin
+                if(enable)begin
                     m_prek_reg <= {pre_k,m_prime};
                     sha512_start <= 1'b1;
                     phase <= PH_SHA512;

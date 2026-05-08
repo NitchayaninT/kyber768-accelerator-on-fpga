@@ -45,7 +45,8 @@ module post_decryption_tb;
         // -- INPUT -- //
         integer i, j;
         rst = 1;
-       
+       //PK,pre_k,coin is from experimental/ninny/pk_sk_testcases.txt generated from experimental/ninny/keygen.py
+       //ct is from experimental/ninny/encryption_top_test.txt
         m_prime = 256'hc8f62308b01ff532919f31937d33fd5e780b3695b97c34a45b51e0469fd4f63f; //placeholder first. the actual value comes from decryption's compress encode
         pre_k = 256'hb1a35cbe2ca105d1d76eda52a37f05abecc407b5f52c44945de57bce8cf21ffd; 
         coin = 256'h47741ccc6bbcc82300ce73c978d63f56c77a7c4170cab1a22e360612f1595435;
