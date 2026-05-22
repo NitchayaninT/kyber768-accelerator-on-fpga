@@ -27,17 +27,40 @@ module noise_gen (
   reg cbd_enable;
   wire shake_done;
   wire cbd_done;
+  
+  logic [263:0] shake256_input; 
+  logic [263:0] in_updated;
 
+  assign shake256_input = {nonce, coin};
+  /*genvar b;
+  generate
+    for (b = 0; b < 33; b = b + 1) begin : REORDER
+      assign in_updated[b*8 +: 8] = shake256_input[263 - 8*b -: 8];
+    end
+  endgenerate*/
+  /*
   shake256 shake256_coin (
       .clk(clk),
       .enable(shake_enable),
       .rst(rst),
-      .in(coin),
+      .in(shake256_input),
       .input_len(256),
-      .nonce(nonce),  // to make the output different even if using the same seed
+      //.nonce(nonce),  // to make the output different even if using the same seed
       .output_len(14'd1024),  // output length 1024 bits
       .output_string(noise_stream),
       .done(shake_done)
+  );*/
+  localparam logic [15:0]  NOISE_OUTPUT_LENGTH_BITS = 16'd1024;
+  hash_controller shake256_coin (
+      .clk(clk),
+      .rst(rst),
+      .enable(shake_enable),
+      .hash_mode(2'b11), // shake256 mode
+      .input_length(16'd264), // 256 bits coin + 8 bits nonce
+      .output_length(NOISE_OUTPUT_LENGTH_BITS), // output length in bytes (1024 bits)
+      .message_in(shake256_input),
+      .message_out(noise_stream),
+      .valid(shake_done)
   );
 
   cbd cbd_module (

@@ -41,3 +41,5 @@ Everything that must happen before the NTT math block can run
         - r = 3 polynomials
         - e1 = 3 polynomials
         - e2 = 1 polynomial
+
+** Hash optimization -> [click here](./hash_optimization.md)

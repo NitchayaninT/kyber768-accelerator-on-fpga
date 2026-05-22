@@ -6,7 +6,7 @@ module shake256 #(
     input               rst,
     input  [511:0]      in,          // coins
     input  integer      input_len,
-    input  [7:0]        nonce,       // 1 byte input
+    //input  [7:0]        nonce,       // 1 byte input
     input  [13:0]       output_len,  // output length
     output reg [1023:0] output_string, // max 4*R bits
     output reg          done // done flag
@@ -15,27 +15,13 @@ module shake256 #(
     integer i;
     always @* begin
         rate_block = '0;
-
-        if (input_len == 512) begin
-            // KDF: use all 512 bits, no nonce
-            for (i = 0; i < 512/8; i++) begin
+            for (i = 0; i < input_len/8; i++) begin
                 rate_block[i*8 +: 8] = in[8*i +:8];
                 //rate_block[8*i +: 8] = msg_bits[8*i +: 8];
             end
             // suffix after message
-            rate_block[512 +: 8] = rate_block[512 +: 8] ^ 8'h1F;
-        end
-        else begin
-            // coins case: use input_len bits from in (usually 256)
-             for (i = 0; i < 256/8; i++) begin
-                rate_block[8*i +: 8] = in[8*i +:8];
-            end
-            // append nonce right after message bits
-            rate_block[input_len +: 8] = nonce;
+            rate_block[input_len +: 8] = rate_block[input_len +: 8] ^ 8'h1F;
 
-            // suffix after message+nonce
-            rate_block[(input_len+8) +: 8] = rate_block[(input_len+8) +: 8] ^ 8'h1F;
-        end
         // pad10*1: final bit of the rate
         rate_block[R-1] = 1'b1;
     end

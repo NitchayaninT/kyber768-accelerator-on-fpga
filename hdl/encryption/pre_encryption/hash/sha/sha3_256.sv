@@ -29,16 +29,7 @@ module sha3_256 #(
     // - For post-encrypt, the input (ct) is already in the correct order, so no need to reverse
     // its reversed so that leftmost byte is absorbed first like in pythoon
     function automatic [7:0] get_msg_byte(input integer idx); //idx is from 0-max byte
-        if (input_len == 14'd256) begin
-            get_msg_byte = in[255-8*idx -: 8];
-        end
-        else if(input_len == 14'd8704) begin
-            // get_msg_byte = in[8703-8*idx -: 8]; (to verify with C cuz reversing ct in c is a headeche)
-            get_msg_byte = in[8*idx +: 8];
-        end
-        else begin
-            get_msg_byte = in[9471-8*idx -: 8];
-        end
+        get_msg_byte = in[8*idx +: 8]; // the bytes are already reversed before entering this module
     endfunction
 
     // Calculate number of absorption blocks (1 or 9):
@@ -67,7 +58,7 @@ module sha3_256 #(
             // msg_len_bytes = 256/8 = 32 or 9472/8 = 1184
             if (total_bytes_index < msg_len_bytes) begin
                 // absorb byte by byte from input msg
-                absorb_byte = get_msg_byte(total_bytes_index); // call function to get python order
+                absorb_byte = get_msg_byte(total_bytes_index); 
             end else begin
                 absorb_byte = 8'h00; 
             end
