@@ -26,6 +26,7 @@ module sponge_const_tb;
 
  task print_state_bytes(input [5375:0] S);
     integer b;
+    integer i;
     localparam integer NUM_BYTES = 5376 / 8;  // 672
     reg [5375:0] python_order;
     begin
@@ -36,8 +37,15 @@ module sponge_const_tb;
             // now SHAKE also prints from actual LSB to MSB like in python
             python_order[8*b +: 8] = S[8*(NUM_BYTES-1-b) +: 8];
         end
+         $display("Print in python order (LSB -> MSB)");
         // print as hex
-        $display("python_order = %h", python_order);
+        for (i = 0; i < NUM_BYTES; i = i + 1) begin
+            if (i % 32 == 0) begin
+                if (i != 0) $display(""); // new line
+            end
+            $write("%02h", python_order[8*(NUM_BYTES-1-i) +: 8]);
+        end
+        $display(""); // final new line
     end
 endtask
 
@@ -57,8 +65,8 @@ endtask
     rst = 1;
     in  = 256'hf8f11229044dfea54ddc214aaa439e7ea06b9b4ede8a3e3f6dfef500c9665598;
     domain = 4'b1111;
-    output_len = 14'd1024; // for coins 
-    // output_len = 14'd5376; // for seed (Public matrix)
+    //output_len = 14'd1024; // for coins 
+    output_len = 14'd5376; // for seed (Public matrix)
     enable = 0;
 
     // Release reset to start loading state_reg, done, etc
