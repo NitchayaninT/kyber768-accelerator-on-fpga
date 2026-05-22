@@ -14,7 +14,7 @@ module public_matrix_gen_tb;
   //// output
   wire [3:0] public_matrix_poly_index;
   wire public_matrix_poly_valid;
-  wire [15:0] A [0:8][0:255];
+  logic signed [15:0] A [0:8][0:255];
   reg [15:0] coeff;
 
   public_matrix_gen hash_top_uut (
@@ -58,8 +58,13 @@ endgenerate
 initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, public_matrix_gen_tb);
-    //$monitor(" phase:%d\n enable: %h\n index_i:%d\n index_j:%d\n state_reg: %h\n bit_squeezed :%d\n output len:%d\n output string:%h\n done:%d\n", hash_top_uut.shake128_public_matrix.phase, hash_top_uut.shake128_public_matrix.enable, hash_top_uut.shake128_public_matrix.index_i, hash_top_uut.shake128_public_matrix.index_j, hash_top_uut.shake128_public_matrix.state_reg, hash_top_uut.shake128_public_matrix.bits_squeezed, hash_top_uut.shake128_public_matrix.output_len, hash_top_uut.shake128_public_matrix.output_string, hash_top_uut.shake_pm_done);
-    //$monitor("index: %d\n rej enable: %d\n, pm poly out:%h\n rej done:%h\n running:%d\n",hash_top_uut.public_matrix_poly_index,hash_top_uut.reject_sampling_module.enable, hash_top_uut.reject_sampling_module.public_matrix_poly,hash_top_uut.rej_done, hash_top_uut.reject_sampling_module.running);
+    $monitor(" phase:%d\n enable: %h\n index_i:%d\n index_j:%d\n state_reg: %h\n bit_squeezed :%d\n output len:%d\n output string:%h\n done:%d\n", hash_top_uut.hash_ctrl.sponge_ctrl.phase, hash_top_uut.hash_ctrl.enable, hash_top_uut.index_i, hash_top_uut.index_j, hash_top_uut.hash_ctrl.sponge_ctrl.state_reg, hash_top_uut.hash_ctrl.sponge_ctrl.bytes_squeezed, hash_top_uut.hash_ctrl.output_length, hash_top_uut.hash_ctrl.message_out, hash_top_uut.shake_pm_done);
+    $monitor("index: %d\n rej enable: %d\n, pm poly out:%h\n rej done:%h\n running:%d\n",hash_top_uut.public_matrix_poly_index,hash_top_uut.reject_sampling_module.enable, hash_top_uut.reject_sampling_module.public_matrix_poly,hash_top_uut.rej_done, hash_top_uut.reject_sampling_module.running);
+    $display("sponge out=%0d public matrix stream=%0d sponge=%0d",
+    hash_top_uut.hash_ctrl.sponge_out,
+    hash_top_uut.public_matrix_stream,
+    hash_top_uut.hash_ctrl.sponge_ctrl.output_len_bytes
+);
     clk = 0;
     forever #(`DELAY / 2) clk = ~clk;
   end

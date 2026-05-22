@@ -4,31 +4,29 @@ module shake128 #(
     input               clk,
     input               enable,
     input               rst,
-    input  [255:0]      in,          // seeds
-    input  [7:0]        index_i,
-    input  [7:0]        index_j,
+    input  [271:0]      in,          // seeds + indices
     input  [13:0]       output_len,  // output length
     output reg [5375:0] output_string, // max 4*R bits
     output reg          done // done flag
 );
     // Absorb byte by byte
-    wire [255:0] msg_bits;
+    /*wire [271:0] msg_bits;
     // Step 0: added domain seperator
     // 260 bits = included domain
     // 272 bits = included matrix index (34 bytes like specified in kyber)
     wire [271:0] in_updated;
     genvar b;
     generate
-        for (b = 0; b < 32; b = b + 1) begin : REORDER // so that the left most bits will be read first
-            assign msg_bits[b*8 +: 8] = in[255-8*b -:8];
+        for (b = 0; b < 34; b = b + 1) begin : REORDER // so that the left most bits will be read first
+            assign msg_bits[b*8 +: 8] = in[271-8*b -:8];
         end
     endgenerate
-    assign in_updated[255:0]   = msg_bits;
-    assign in_updated[263:256] = index_i; //byte 32
-    assign in_updated[271:264] = index_j; //byte 33 (last)
+    assign in_updated[271:0]   = msg_bits;
+    //assign in_updated[263:256] = index_i; //byte 32
+    //assign in_updated[271:264] = index_j; //byte 33 (last)*/
 
     wire [R-1:0] rate_block;
-    assign rate_block = {{(R-272){1'b0}}, in_updated};
+    assign rate_block = {{(R-272){1'b0}}, in};
 
     // Step 1 : padding
     wire [R-1:0] padded_mask;
@@ -86,7 +84,7 @@ module shake128 #(
             phase         <= PH_IDLE;
             state_reg     <= 1600'b0;
             bits_squeezed <= 14'd0;
-            output_string <= {5376{1'b0}}; // initialize output str to 000000...
+            output_string <= {5376{1'b0}};
             perm_enable   <= 1'b0;
             done          <= 1'b0;
             

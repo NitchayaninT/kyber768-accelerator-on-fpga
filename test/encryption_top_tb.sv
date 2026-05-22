@@ -47,6 +47,70 @@ module encrytion_top_tb;
     repeat (2) @(posedge clk);
     start = 1;
     wait (encryption_top.compress_done == 1);
+    $display("msg bytes:");
+    for (int i = 0; i < 32; i++) $write("%02x", encryption_top.pre_encryption_uut.msg[8*i +: 8]);
+    $write("\n");
+    
+    $display("hash_ek bytes:");
+    for (int i = 0; i < 32; i++) $write("%02x", encryption_top.pre_encryption_uut.hash_ek[8*i +: 8]);
+    $write("\n");
+    
+    $display("buf0 bytes absorbed by SHA3-512:");
+    for (int i = 0; i < 64; i++) $write("%02x", encryption_top.pre_encryption_uut.buf0[8*i +: 8]);
+    $write("\n");
+    
+    $display("buf1 bytes output from SHA3-512:");
+    for (int i = 0; i < 64; i++) $write("%02x", encryption_top.pre_encryption_uut.buf1[8*i +: 8]);
+    $write("\n");
+
+    $display("A_T (public matrix)");
+    for (j = 0; j < 9; j++) begin
+      $display("=== A_t poly %0d ===", j);
+      for (i = 0; i < 256; i++) begin
+        coeff = encryption_top.a_t[j][i];
+        $write("%0d ", coeff);
+        if ((i % 16) == 15) $write("\n");
+      end
+      $write("\n");
+    end
+
+    $display("NOISE r");
+    for (j = 0; j < 3; j++) begin
+      $display("=== r %0d ===", j);
+      for (i = 0; i < 256; i++) begin
+        coeff = encryption_top.r[j][i];
+        $write("%0d ", coeff);
+        if ((i % 16) == 15) $write("\n");
+      end
+      $write("\n");
+    end
+    
+    $display("coin bytes absorbed by noise:");
+    for (int i = 0; i < 32; i++) begin
+      $write("%02x", encryption_top.pre_encryption_uut.coin[8*i +: 8]);
+    end
+    $write("\n");
+
+
+    $display("NOISE e1");
+    for (j = 0; j < 3; j++) begin
+      $display("=== e1 %0d ===", j);
+      for (i = 0; i < 256; i++) begin
+        coeff = encryption_top.e1[j][i];
+        $write("%0d ", coeff);
+        if ((i % 16) == 15) $write("\n");
+      end
+      $write("\n");
+    end
+
+    $display("NOISE e2");
+    for (i = 0; i < 256; i++) begin
+      coeff = encryption_top.e2[i];
+      $write("%0d ", coeff);
+      if ((i % 16) == 15) $write("\n");
+    end
+    $write("\n");
+
      $display("X (after main compute)");
     for (j = 0; j < 3; j++) begin
       $display("=== x %0d ===", j);
@@ -124,10 +188,29 @@ module encrytion_top_tb;
     wait (encrypt_done == 1);
 
     #10
+    $display("post ct_hash bytes:");
+    for (int i = 0; i < 32; i++) begin
+      $write("%02x", encryption_top.post_encryption_uut.ct_hash_reg[8*i +: 8]);
+    end
+    $write("\n");
+
+    $display("post KDF input bytes:");
+    for (int i = 0; i < 64; i++) begin
+      $write("%02x", encryption_top.post_encryption_uut.ct_prek_reg[8*i +: 8]);
+    end
+    $write("\n");
+
+    $display("post raw shake bytes:");
+    for (int i = 0; i < 32; i++) begin
+      $write("%02x", encryption_top.post_encryption_uut.shake_out[8*i +: 8]);
+    end
+    $write("\n");
+
     // display outputs
     $display("pre-k: %h", pre_k);  // pre-k to test with post-decryption
     $display("ss1: %h", ss1);  // shared secret 
     $display("ct_out: %h", ct_out);  // ciphertext stream
+
     $finish;
   end
 endmodule

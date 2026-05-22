@@ -28,17 +28,43 @@ module public_matrix_gen(
     wire rej_done; // done flag for samp rejection
     wire [5375:0] public_matrix_stream; // stream after shake.
 
+    // idea for shake128 : input seed + index_i and index_j AT THE SAME TIME
+    logic [271:0] shake128_input; 
+    assign shake128_input = {seed,index_i,index_j}; // concatenate index and seed together as input for shake128, so that we can generate different stream for different poly index
+    
+    // reverse outside shake module before feeding into shake
+    wire [271:0] msg_bits;
+    wire [271:0] in_updated;
+    genvar b;
+    generate
+        for (b = 0; b < 34; b = b + 1) begin : REORDER // so that the left most bits will be read first
+            assign msg_bits[b*8 +: 8] = shake128_input[271-8*b -:8];
+        end
+    endgenerate
+    assign in_updated[271:0]   = msg_bits;
+    
+    localparam logic [15:0]  PM_OUTPUT_LENGTH_BITS = 16'd5376;
+    hash_controller hash_ctrl (
+        .clk          (clk),
+        .rst          (rst),
+        .enable       (shake_pm_enable),
+        .hash_mode    (2'b10), // shake128 mode
+        .input_length (16'd272),
+        .output_length(PM_OUTPUT_LENGTH_BITS), // output length in bytes (5376 bits)
+        .message_in   (in_updated), //271 bits input
+        .message_out  (public_matrix_stream),
+        .valid        (shake_pm_done)
+    );
+/*
     shake128 shake128_public_matrix (
         .clk(clk),
         .enable(shake_pm_enable),
         .rst(rst),
-        .in(seed),
-        .index_i(index_i),
-        .index_j(index_j),
-        .output_len(14'd5376), // output length 5376 bits
+        .in(in_updated),
+        .output_len(PM_OUTPUT_LENGTH_BITS), // output length 5376 bits
         .output_string(public_matrix_stream),
         .done(shake_pm_done)
-    );
+    );*/
 
     reject_sampling reject_sampling_module (
         .clk(clk),

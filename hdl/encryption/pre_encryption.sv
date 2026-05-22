@@ -54,49 +54,135 @@ module pre_encryption (
   // Internal variable between module
   reg sha3_valid[3];
   reg sha512_valid;
+  reg msg_done;
+  reg hash_ek_done;
+  reg sha512_started;
   reg noise_gen_valid;
   reg public_matrix_valid;
   reg noise_done;
   reg public_matrix_done;
   reg [(KYBER_N * KYBER_RQ_WIDTH)-1:0] msg_poly_packed; // packed version of msg_poly for easier handling in decode_msg
   wire [KYBER_N - 1:0] hash_ek;
+  reg [KYBER_N - 1:0] msg_latched;
+  reg [KYBER_N - 1:0] hash_ek_latched;
   logic [(2 * KYBER_N) - 1:0] buf0;  // store hash(ek),msg
   logic [(2 * KYBER_N) - 1:0] buf1;  // store coin,pre_k
   reg [3:0] public_matrix_poly_index;
   reg public_matrix_poly_valid;
 
+  // reverse order of bits for sha3-256 in pre encryption
+  // for Rin
+  wire [255:0] rin_reversed;
+    genvar b;
+    generate
+        for (b = 0; b < 32; b = b + 1) begin : REORDER // so that the left most bits will be read first
+            assign rin_reversed[b*8 +: 8] = r_in[255-8*b -:8];
+        end
+    endgenerate
+  // for encryption key
+  wire [9471:0] ek_reversed;
+    genvar c;
+    generate
+        for (c = 0; c < 1184; c = c + 1) begin : REORDER2 // so that the left most bits will be read first
+            assign ek_reversed[c*8 +: 8] = encryption_key[9471-8*c -:8];
+        end
+    endgenerate
+
   // SHA modules declaration
   // 1. Hash R (random bits) to get msg
-  sha3_256 sha3_uut1 (
+  hash_controller sha3_256_rin (
       .clk(clk),
       .rst(rst),
       .enable(start),
-      .in(r_in),  // 256 bit random input
+      .hash_mode(2'b00), // sha3-256 mode
+      .input_length(16'd256),
+      .output_length(16'd256),
+      .message_in(rin_reversed),  // 256 bit random input
+      .message_out(msg),  // get msg
+      .valid(sha3_valid[0])
+  );
+ /* sha3_256 sha3_uut1 (
+      .clk(clk),
+      .rst(rst),
+      .enable(start),
+      .in(rin_reversed),  // 256 bit random input
       .input_len(256),
       .output_string(msg),  // get msg
       .done(sha3_valid[0])
-  );
+  );*/
 
   // 2. get hash(pk)
-  sha3_256 sha3_uut2 (
+  hash_controller sha3_256_ek (
       .clk(clk),
       .rst(rst),
       .enable(start),
-      .in(encryption_key),
+      .hash_mode(2'b00), // sha3-256 mode
+      .input_length(16'd9472),
+      .output_length(16'd256),
+      .message_in(ek_reversed),  // 9472 bit input (pk)
+      .message_out(hash_ek),  // get hash(pk)
+      .valid(sha3_valid[1])
+  );
+  /*sha3_256 sha3_uut2 (
+      .clk(clk),
+      .rst(rst),
+      .enable(start),
+      .in(ek_reversed),
       .input_len((KYBER_N) + (KYBER_K * KYBER_RQ_WIDTH * KYBER_N)),  //9472
       .output_string(hash_ek),  //256
       .done(sha3_valid[1])
-  );
+  );*/
 
-  // 2.5 Concatenate hash(ek) || msg. msg is at lower bits
-  always_comb begin
-    sha512_valid = sha3_valid[0] & sha3_valid[1];
-    if (sha512_valid) buf0 = {hash_ek, msg};
-    else buf0 = '0;
+  // 2.5 Latch m and H(pk), then keep G input stable for SHA3-512.
+  // hash_controller outputs are not sticky like the old separate hash modules.
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+      msg_done        <= 1'b0;
+      hash_ek_done    <= 1'b0;
+      sha512_started  <= 1'b0;
+      sha512_valid    <= 1'b0;
+      msg_latched     <= '0;
+      hash_ek_latched <= '0;
+      buf0            <= '0;
+    end else begin
+      sha512_valid <= 1'b0;
+
+      if (sha3_valid[0]) begin
+        msg_latched <= msg;
+        msg_done    <= 1'b1;
+      end
+
+      if (sha3_valid[1]) begin
+        hash_ek_latched <= hash_ek;
+        hash_ek_done    <= 1'b1;
+      end
+
+      if (!sha512_started &&
+          (msg_done || sha3_valid[0]) &&
+          (hash_ek_done || sha3_valid[1])) begin
+        buf0 <= {
+          (sha3_valid[1] ? hash_ek : hash_ek_latched),
+          (sha3_valid[0] ? msg : msg_latched)
+        };
+        sha512_valid   <= 1'b1;
+        sha512_started <= 1'b1;
+      end
+    end
   end
 
   // 3. SHA3-512(SHA3-256(ek) || msg) to generate coin, pre_k
-  sha3_512 sha3_uut3 (
+  hash_controller sha3_512_uut (
+        .clk(clk),
+        .rst(rst),
+        .enable(sha512_valid),
+        .hash_mode(2'b01), // sha3-512 mode
+        .input_length(16'd512),
+        .output_length(16'd512),
+        .message_in(buf0),  // 512 bits
+        .message_out(buf1), // 512 bits output (coin || pre_k)
+        .valid(sha3_valid[2])
+    );
+  /*sha3_512 sha3_uut3 (
       .clk(clk),
       .rst(rst),
       .enable(sha512_valid),
@@ -104,7 +190,7 @@ module pre_encryption (
       .input_len(512),
       .output_string(buf1),
       .done(sha3_valid[2])
-  );
+  );*/
 
   // 3.5 Seperate coin and pre_k from buf1
   always @(posedge clk) begin
@@ -123,7 +209,7 @@ module pre_encryption (
   // *** indcpa-enc starts from here ***
   // 4. Decode decompress msg
   decode_msg dmsg_uut (
-      .msg(msg),
+      .msg(msg_latched),
       .poly_msg(msg_poly_packed)
   );
 
