@@ -1,0 +1,11 @@
+Padding : pad10*1(x,m)
+
+Input
+1. positive int x = 1344 
+2. non-negative int m = 260
+
+Steps 
+1. Let j = (-m-2)mod x -> -262 mod 1344 = 1082 
+2. Returns P = 1|| 1082 bits of 0's || 1 = 1084 bits 
+
+Return String P (1084 bits)

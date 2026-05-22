@@ -1,2 +1,5 @@
 .nvim
 vivado/
+.setting.json
+.vscode/
+data/
