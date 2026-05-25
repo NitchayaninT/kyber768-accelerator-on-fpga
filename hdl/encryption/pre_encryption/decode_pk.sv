@@ -80,3 +80,36 @@ module decode_pk (
 
   assign done = 1'b1;
 endmodule
+/* explanation:
+  Big-endian:
+      first byte goes to high is big endian which is AABBCCDD, 
+      this means left side is big. 
+  Little-endian:
+      first byte goes to low side, which is little endian which is DDCCBBAA, 
+      this mean left side is small.
+  Official kyber:
+    pk byte order = t packed bytes first, rho last
+    pk[0], pk[1], pk[2], ..., pk[1183]
+    first 1152 bytes are t_vec(0-1151), last 32 bytes are rho(1152 - 1183)
+    pk = t0 || t1 || t2 || rho
+  In my testbench:(little endian)
+    public_key[8*i +: 8] = pk_mem[i];
+      low bits                              high bits
+      t0                t1        t2        rho
+  Python hex string:(big-endian)
+    public_key = 9472'h<t0 t1 t2 rho>;
+      high bits                             low bits
+      t0                t1        t2        rho
+        public_key high bits = t0
+        public_key low bits  = rho -> assign rho = public_key[255:0];
+*/
+  
+
+    
+    
+
+
+
+    
+    
+    

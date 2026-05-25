@@ -7,8 +7,8 @@ module decode_ct#(
     input  logic clk,
     input logic [7:0]  c1 [0:959], 
     input logic [7:0]  c2 [0:127], 
-    output  logic [15:0] u [0:2][0:255],   
-    output  logic [15:0] v [0:255],        
+    output  logic signed [15:0] u [0:2][0:255],
+    output  logic signed [15:0] v [0:255],
     output logic decompress_done
 );
 //decompress to 16 bits from 10 bits
