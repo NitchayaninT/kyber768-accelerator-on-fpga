@@ -10,23 +10,35 @@ module public_matrix_gen(
     input rst,
     input enable,
     input [255:0] seed,
+    // SHAKE CONTROLS INPUTS
+    input logic hash_valid,
+    input logic [5375:0] hash_message_out,
+
+    // OUTPUTS
     output reg public_matrix_done,
     // output 1 poly at a time
     output reg [3:0] public_matrix_poly_index,
     output reg public_matrix_poly_valid,
-    output reg signed [15:0] A [0:8][0:255] // each coef has 16 bits
+    output reg signed [15:0] A [0:8][0:255], // each coef has 16 bits
+    // SHAKE CONTROLS OUTPUTS
+    output logic hash_start,
+    output logic [1:0]  hash_mode,
+    output logic [15:0] hash_input_length,
+    output logic [15:0] hash_output_length,
+    output logic [9471:0] hash_message_in
 );
 
 // -- Public Matrix Loop Gen -- //
 // Input index i & j along with the seed (specified in NIST203)
 // Reason : so that the poly outputs are different, even tho they're using the same seed
+    logic [5375:0] public_matrix_stream;
     wire  [4095:0] public_matrix_poly_out;
     reg [7:0] index_i, index_j;
-    reg shake_pm_enable; // enable calling shake module
+    // reg shake_pm_enable; // enable calling shake module
     reg rej_enable; // enable calling sampling rejection
-    wire shake_pm_done; // done flag for public matrix's shake
+    // wire shake_pm_done; // done flag for public matrix's shake
     wire rej_done; // done flag for samp rejection
-    wire [5375:0] public_matrix_stream; // stream after shake.
+    // wire [5375:0] public_matrix_stream; // stream after shake.
 
     // idea for shake128 : input seed + index_i and index_j AT THE SAME TIME
     logic [271:0] shake128_input; 
@@ -44,7 +56,8 @@ module public_matrix_gen(
     assign in_updated[271:0]   = msg_bits;
     
     localparam logic [15:0]  PM_OUTPUT_LENGTH_BITS = 16'd5376;
-    hash_controller hash_ctrl (
+
+    /*hash_controller hash_ctrl (
         .clk          (clk),
         .rst          (rst),
         .enable       (shake_pm_enable),
@@ -54,7 +67,7 @@ module public_matrix_gen(
         .message_in   (in_updated), //271 bits input
         .message_out  (public_matrix_stream),
         .valid        (shake_pm_done)
-    );
+    );*/
 /*
     shake128 shake128_public_matrix (
         .clk(clk),
@@ -94,14 +107,23 @@ module public_matrix_gen(
             state_reg <= IDLE;
             index_i <= 8'd0;
             index_j <= 8'd0;
-            shake_pm_enable <= 1'b0;
+
+            hash_start <= 1'b0;
+            hash_mode <= 2'b00;
+            hash_input_length <= 16'd0;
+            hash_output_length <= 16'd0;
+            hash_message_in <= '0;
+
+            public_matrix_stream <= '0;
+
             rej_enable <= 1'b0;
             public_matrix_done <= 1'b0;
             public_matrix_poly_valid <= 1'b0;
             public_matrix_poly_index <= 4'd0;
         end else begin
             // default values
-            shake_pm_enable <= 1'b0;
+            //shake_pm_enable <= 1'b0;
+            hash_start <= 1'b0;  
             rej_enable <= 1'b0;
             public_matrix_poly_valid <= 1'b0;
 
@@ -115,12 +137,17 @@ module public_matrix_gen(
                     end
                 end
                 SHAKE_START: begin
-                    shake_pm_enable <= 1'b1;
-                    state_reg <= WAIT_SHAKE;
+                      hash_start <= 1'b1;
+                      hash_mode <= 2'b10; // SHAKE128
+                      hash_input_length <= 16'd272;
+                      hash_output_length <= 16'd5376;
+                      hash_message_in <= '0;
+                      hash_message_in[271:0] <= in_updated;
+                      state_reg <= WAIT_SHAKE;
                 end
                 WAIT_SHAKE: begin
-                    if(shake_pm_done) begin
-                        shake_pm_enable <= 1'b0;
+                    if(hash_valid) begin
+                        public_matrix_stream <= hash_message_out[5375:0];
                         state_reg <= REJ_START;
                     end
                 end
@@ -154,7 +181,7 @@ module public_matrix_gen(
                             index_j <= index_j+1;
                         end
                         state_reg <= SHAKE_START;
-                        shake_pm_enable <= 1'b1;
+                        //shake_pm_enable <= 1'b1;
                     end
                 end
                 DONE: begin

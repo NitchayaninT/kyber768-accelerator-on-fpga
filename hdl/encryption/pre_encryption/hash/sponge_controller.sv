@@ -212,16 +212,15 @@ always_ff @(posedge clk or posedge rst) begin
             end
             // 4. Done
             PH_DONE: begin
-                valid <= 1'b1; // valid = 1
+                valid <= 1'b1;
+                busy  <= 1'b0;
                 phase <= PH_CLEAR;
-                // can read output_string now
             end
 
             PH_CLEAR: begin
-                if(start) begin
-                    phase <= PH_IDLE;
-                    valid <= 1'b0;
-                end
+                valid <= 1'b0;
+                busy  <= 1'b0;
+                phase <= PH_IDLE;
             end
         endcase
     end

@@ -11,16 +11,25 @@ module noise_gen (
     input rst,
     input enable,
     input [255:0] coin,
+    input  logic hash_valid,
+    input  logic [5375:0] hash_message_out,
     output reg noise_done,
     output logic signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1],
     output logic signed [KYBER_POLY_WIDTH-1:0] e1[0:KYBER_K-1][0:KYBER_N-1],
-    output logic signed [KYBER_POLY_WIDTH-1:0] e2[0:KYBER_N-1]
+    output logic signed [KYBER_POLY_WIDTH-1:0] e2[0:KYBER_N-1],
+
+    // HASH CONTROLS OUTPUTS (for shake256)
+    output logic hash_start,
+    output logic [1:0]  hash_mode,
+    output logic [15:0] hash_input_length,
+    output logic [15:0] hash_output_length,
+    output logic [9471:0] hash_message_in
 );
   // -- Noise gen -- //
-  wire [4095:0] noise_poly_out;  // 256 coeffs, each coeff is 16 bits. 128 bytes per poly
+  logic [4095:0] noise_poly_out;  // 256 coeffs, each coeff is 16 bits. 128 bytes per poly
   reg [2:0] noise_poly_index;  // 0-2
   reg noise_poly_valid;  // valid if poly is ready
-  wire [1023:0] noise_stream;  // from shake
+  reg [1023:0] noise_stream;  // from shake
   reg [7:0] nonce;  // increment by one every time the poly is produced. 
   // nonce is used to track poly index as well (0-6)
   reg shake_enable;
@@ -31,7 +40,7 @@ module noise_gen (
   logic [263:0] shake256_input; 
   logic [263:0] in_updated;
 
-  assign shake256_input = {nonce, coin};
+  assign shake256_input = {nonce, coin}; // ASSIGN SHAKE256 INPUT! nonce changes once every poly gets produced until all 7 polys are produced
   /*genvar b;
   generate
     for (b = 0; b < 33; b = b + 1) begin : REORDER
@@ -51,7 +60,7 @@ module noise_gen (
       .done(shake_done)
   );*/
   localparam logic [15:0]  NOISE_OUTPUT_LENGTH_BITS = 16'd1024;
-  hash_controller shake256_coin (
+ /* hash_controller shake256_coin (
       .clk(clk),
       .rst(rst),
       .enable(shake_enable),
@@ -61,7 +70,7 @@ module noise_gen (
       .message_in(shake256_input),
       .message_out(noise_stream),
       .valid(shake_done)
-  );
+  );*/
 
   cbd cbd_module (
       .clk(clk),
@@ -85,17 +94,26 @@ module noise_gen (
   reg [2:0] state_reg;
   always @(posedge clk or posedge rst) begin
     if (rst) begin
-      state_reg <= IDLE;
-      nonce <= 8'd0;
-      shake_enable <= 1'b0;
-      cbd_enable <= 1'b0;
-      noise_done <= 1'b0;
-      noise_poly_valid <= 1'b0;
+        state_reg <= IDLE;
+        nonce <= 8'd0;
+        shake_enable <= 1'b0;
+        cbd_enable <= 1'b0;
+        noise_done <= 1'b0;
+        noise_poly_valid <= 1'b0;
+
+        hash_start <= 1'b0;
+        hash_mode <= 2'b00;
+        hash_input_length <= 16'd0;
+        hash_output_length <= 16'd0;
+        hash_message_in <= '0;
+        noise_stream <= '0;
+        noise_poly_index <= '0;
     end else begin
       // default values
       shake_enable <= 1'b0;
       cbd_enable <= 1'b0;
       noise_poly_valid <= 1'b0;
+      hash_start <= 1'b0;
 
       case (state_reg)
         IDLE: begin
@@ -107,12 +125,17 @@ module noise_gen (
           end
         end
         SHAKE_START: begin
-          shake_enable <= 1'b1;
-          state_reg <= WAIT_SHAKE;
+              hash_start <= 1'b1;
+              hash_mode <= 2'b11; // SHAKE256
+              hash_input_length <= 16'd264;
+              hash_output_length <= 16'd1024;
+              hash_message_in <= '0;
+              hash_message_in[263:0] <= shake256_input;
+              state_reg <= WAIT_SHAKE;
         end
         WAIT_SHAKE: begin
-          if (shake_done) begin
-            shake_enable <= 1'b0;
+          if (hash_valid) begin
+            noise_stream <= hash_message_out[1023:0];
             state_reg <= CBD_START;
           end
         end
