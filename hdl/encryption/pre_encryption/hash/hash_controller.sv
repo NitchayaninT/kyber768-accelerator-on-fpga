@@ -60,7 +60,7 @@ sponge_controller sponge_ctrl (
         case (hash_mode)
             2'b00: message_out[255:0]  = sponge_out[255:0];
             2'b01: message_out[511:0]  = sponge_out[511:0];
-            2'b10: message_out          = sponge_out;
+            2'b10: message_out = sponge_out;
             2'b11: message_out[1023:0] = sponge_out[1023:0];
             default: begin
                 message_out = '0;

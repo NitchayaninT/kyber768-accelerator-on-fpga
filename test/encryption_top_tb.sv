@@ -30,7 +30,6 @@ module encrytion_top_tb;
     $dumpvars(0, encryption_top);
     clk = 0;
   end
-
   initial begin
     // -- INPUT -- //
     integer i, j;
@@ -46,23 +45,17 @@ module encrytion_top_tb;
     // wait a cycle, then pulse start
     repeat (2) @(posedge clk);
     start = 1;
-    wait (encryption_top.compress_done == 1);
-    $display("msg bytes:");
-    for (int i = 0; i < 32; i++) $write("%02x", encryption_top.pre_encryption_uut.msg[8*i +: 8]);
-    $write("\n");
-    
-    $display("hash_ek bytes:");
-    for (int i = 0; i < 32; i++) $write("%02x", encryption_top.pre_encryption_uut.hash_ek[8*i +: 8]);
-    $write("\n");
-    
-    $display("buf0 bytes absorbed by SHA3-512:");
-    for (int i = 0; i < 64; i++) $write("%02x", encryption_top.pre_encryption_uut.buf0[8*i +: 8]);
-    $write("\n");
-    
-    $display("buf1 bytes output from SHA3-512:");
-    for (int i = 0; i < 64; i++) $write("%02x", encryption_top.pre_encryption_uut.buf1[8*i +: 8]);
-    $write("\n");
 
+    wait (encryption_top.compress_done == 1);
+    $display("msg_latched bytes:");
+    for (int i = 0; i < 32; i++)
+      $write("%02x", encryption_top.pre_encryption_uut.msg_latched[8*i +: 8]);
+    $write("\n");
+    
+    $display("hash_ek_latched bytes:");
+    for (int i = 0; i < 32; i++)
+      $write("%02x", encryption_top.pre_encryption_uut.hash_ek_latched[8*i +: 8]);
+    $write("\n");
     $display("A_T (public matrix)");
     for (j = 0; j < 9; j++) begin
       $display("=== A_t poly %0d ===", j);

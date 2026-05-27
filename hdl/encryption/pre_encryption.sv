@@ -38,12 +38,25 @@ module pre_encryption (
     //input kem_enc_decap, // flag for encapsulation or decapsulation
     input [KYBER_N - 1:0] r_in,  // in kem_enc : R, in kem_dec : msg'
     input [(KYBER_N)+(KYBER_K * KYBER_RQ_WIDTH * KYBER_N)-1:0] encryption_key,
+
+    // HASH CONTROLS INPUTS
+    input logic hash_valid,
+    input logic [5375:0] hash_message_out,
+
+    // OUTPUTS
     output logic signed [KYBER_POLY_WIDTH-1:0] e2[0:KYBER_N-1],
     output logic signed [KYBER_POLY_WIDTH-1:0] e1[0:KYBER_K-1][0:KYBER_N-1],
     output logic signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1],
     output [(KYBER_N * KYBER_RQ_WIDTH)-1:0] t_vec[3],
     output signed [KYBER_POLY_WIDTH-1 : 0] a_t[0:(KYBER_K*KYBER_K)-1][0:KYBER_N-1],
     output logic signed [KYBER_POLY_WIDTH-1 : 0] msg_poly[0:KYBER_N-1],
+
+    // HASH CONTROL PORTS (controls by encryption_top)
+    output logic hash_start,
+    output logic [1:0] hash_mode,
+    output logic [15:0] hash_input_length,
+    output logic [15:0] hash_output_length,
+    output logic [9471:0] hash_message_in,
     output reg [KYBER_N - 1:0] pre_k,
     output reg valid
 );
@@ -52,25 +65,57 @@ module pre_encryption (
   reg [KYBER_N - 1:0] coin;
   reg [KYBER_N - 1:0] rho;
   // Internal variable between module
-  reg sha3_valid[3];
-  reg sha512_valid;
-  reg msg_done;
-  reg hash_ek_done;
-  reg sha512_started;
+ // reg sha3_valid[3];
+ // reg sha512_valid;
+  logic decode_pk_done;
+  logic public_matrix_start;
+  //reg msg_done;
+  //reg hash_ek_done;
+  //reg sha512_started;
   reg noise_gen_valid;
   reg public_matrix_valid;
   reg noise_done;
   reg public_matrix_done;
   reg [(KYBER_N * KYBER_RQ_WIDTH)-1:0] msg_poly_packed; // packed version of msg_poly for easier handling in decode_msg
-  wire [KYBER_N - 1:0] hash_ek;
   reg [KYBER_N - 1:0] msg_latched;
   reg [KYBER_N - 1:0] hash_ek_latched;
-  logic [(2 * KYBER_N) - 1:0] buf0;  // store hash(ek),msg
+  //logic [(2 * KYBER_N) - 1:0] buf0;  // store hash(ek),msg
   logic [(2 * KYBER_N) - 1:0] buf1;  // store coin,pre_k
   reg [3:0] public_matrix_poly_index;
   reg public_matrix_poly_valid;
 
-  // reverse order of bits for sha3-256 in pre encryption
+typedef enum logic [3:0] {
+    IDLE,
+    HASH_RIN_START,
+    HASH_RIN_WAIT,
+    HASH_PK_START,
+    HASH_PK_WAIT,
+    HASH_BUF0_START,
+    HASH_BUF0_WAIT,
+    START_MATRIX_GEN,
+    WAIT_MATRIX_GEN,
+    START_NOISE,
+    WAIT_NOISE,
+    DONE
+} state_t;
+
+state_t pre_enc_state;
+// public matrix hash request
+logic pmg_hash_start;
+logic [1:0]  pmg_hash_mode;
+logic [15:0] pmg_hash_input_length;
+logic [15:0] pmg_hash_output_length;
+logic [9471:0] pmg_hash_message_in;
+
+// noise hash request
+logic ng_hash_start;
+logic [1:0]  ng_hash_mode;
+logic [15:0] ng_hash_input_length;
+logic [15:0] ng_hash_output_length;
+logic [9471:0] ng_hash_message_in;
+
+  // reverse order of bits for sha3-256 in pre encryption (so that the order can be comparable with C, otherwise the input would be in an incorrect order)
+  // reason : rin and ek are DIRECT inputs from testbench
   // for Rin
   wire [255:0] rin_reversed;
     genvar b;
@@ -88,124 +133,6 @@ module pre_encryption (
         end
     endgenerate
 
-  // SHA modules declaration
-  // 1. Hash R (random bits) to get msg
-  hash_controller sha3_256_rin (
-      .clk(clk),
-      .rst(rst),
-      .enable(start),
-      .hash_mode(2'b00), // sha3-256 mode
-      .input_length(16'd256),
-      .output_length(16'd256),
-      .message_in(rin_reversed),  // 256 bit random input
-      .message_out(msg),  // get msg
-      .valid(sha3_valid[0])
-  );
- /* sha3_256 sha3_uut1 (
-      .clk(clk),
-      .rst(rst),
-      .enable(start),
-      .in(rin_reversed),  // 256 bit random input
-      .input_len(256),
-      .output_string(msg),  // get msg
-      .done(sha3_valid[0])
-  );*/
-
-  // 2. get hash(pk)
-  hash_controller sha3_256_ek (
-      .clk(clk),
-      .rst(rst),
-      .enable(start),
-      .hash_mode(2'b00), // sha3-256 mode
-      .input_length(16'd9472),
-      .output_length(16'd256),
-      .message_in(ek_reversed),  // 9472 bit input (pk)
-      .message_out(hash_ek),  // get hash(pk)
-      .valid(sha3_valid[1])
-  );
-  /*sha3_256 sha3_uut2 (
-      .clk(clk),
-      .rst(rst),
-      .enable(start),
-      .in(ek_reversed),
-      .input_len((KYBER_N) + (KYBER_K * KYBER_RQ_WIDTH * KYBER_N)),  //9472
-      .output_string(hash_ek),  //256
-      .done(sha3_valid[1])
-  );*/
-
-  // 2.5 Latch m and H(pk), then keep G input stable for SHA3-512.
-  // hash_controller outputs are not sticky like the old separate hash modules.
-  always_ff @(posedge clk or posedge rst) begin
-    if (rst) begin
-      msg_done        <= 1'b0;
-      hash_ek_done    <= 1'b0;
-      sha512_started  <= 1'b0;
-      sha512_valid    <= 1'b0;
-      msg_latched     <= '0;
-      hash_ek_latched <= '0;
-      buf0            <= '0;
-    end else begin
-      sha512_valid <= 1'b0;
-
-      if (sha3_valid[0]) begin
-        msg_latched <= msg;
-        msg_done    <= 1'b1;
-      end
-
-      if (sha3_valid[1]) begin
-        hash_ek_latched <= hash_ek;
-        hash_ek_done    <= 1'b1;
-      end
-
-      if (!sha512_started &&
-          (msg_done || sha3_valid[0]) &&
-          (hash_ek_done || sha3_valid[1])) begin
-        buf0 <= {
-          (sha3_valid[1] ? hash_ek : hash_ek_latched),
-          (sha3_valid[0] ? msg : msg_latched)
-        };
-        sha512_valid   <= 1'b1;
-        sha512_started <= 1'b1;
-      end
-    end
-  end
-
-  // 3. SHA3-512(SHA3-256(ek) || msg) to generate coin, pre_k
-  hash_controller sha3_512_uut (
-        .clk(clk),
-        .rst(rst),
-        .enable(sha512_valid),
-        .hash_mode(2'b01), // sha3-512 mode
-        .input_length(16'd512),
-        .output_length(16'd512),
-        .message_in(buf0),  // 512 bits
-        .message_out(buf1), // 512 bits output (coin || pre_k)
-        .valid(sha3_valid[2])
-    );
-  /*sha3_512 sha3_uut3 (
-      .clk(clk),
-      .rst(rst),
-      .enable(sha512_valid),
-      .in(buf0),  // 512 bits
-      .input_len(512),
-      .output_string(buf1),
-      .done(sha3_valid[2])
-  );*/
-
-  // 3.5 Seperate coin and pre_k from buf1
-  always @(posedge clk) begin
-    if (rst) begin
-      coin  <= 'd0;
-      noise_gen_valid <= 1'b0;
-      pre_k <= 'd0;
-    end else begin
-      if (sha3_valid[2]) begin
-        pre_k <= buf1[(KYBER_N)-1:0];  // first 256
-        coin  <= buf1[(2*KYBER_N)-1:KYBER_N];  //last 256
-      end
-      noise_gen_valid <= sha3_valid[2];  // Can do noise gen now
-    end
-  end
   // *** indcpa-enc starts from here ***
   // 4. Decode decompress msg
   decode_msg dmsg_uut (
@@ -225,45 +152,168 @@ module pre_encryption (
       .public_key(encryption_key),
       .rho(rho), // this rho is still in reversed order due to pk's input, it will be reversed to the correct order in shake
       .t_trans(t_vec),
-      .done(public_matrix_valid)
+      .done(decode_pk_done)
   );
 
   // 6. Matrix Generation
-  public_matrix_gen pmg_uut (
-      .clk(clk),
-      .rst(rst),
-      .enable(public_matrix_valid),
-      .seed(rho),
-      .public_matrix_done(public_matrix_done),
-      .public_matrix_poly_index(public_matrix_poly_index),
-      .public_matrix_poly_valid(public_matrix_poly_valid),
-      .A(a_t)
-  );
+public_matrix_gen pmg_uut (
+    .clk(clk),
+    .rst(rst),
+    .enable(public_matrix_start),
+    .seed(rho),
 
+    .hash_valid(hash_valid),
+    .hash_message_out(hash_message_out),
+    .hash_start(pmg_hash_start),
+    .hash_mode(pmg_hash_mode),
+    .hash_input_length(pmg_hash_input_length),
+    .hash_output_length(pmg_hash_output_length),
+    .hash_message_in(pmg_hash_message_in),
+
+    .public_matrix_done(public_matrix_done),
+    .public_matrix_poly_index(public_matrix_poly_index),
+    .public_matrix_poly_valid(public_matrix_poly_valid),
+    .A(a_t)
+);
   // 7. Noise Generation
-  noise_gen ng_uut (
-      .clk(clk),
-      .rst(rst),
-      .enable(noise_gen_valid),
-      .coin(coin),
-      .e2(e2),
-      .e1(e1),
-      .r(r),
-      .noise_done(noise_done)
-  );
+noise_gen ng_uut (
+    .clk(clk),
+    .rst(rst),
+    .enable(noise_gen_valid),
+    .coin(coin),
+
+    .hash_valid(hash_valid),
+    .hash_message_out(hash_message_out),
+    .hash_start(ng_hash_start),
+    .hash_mode(ng_hash_mode),
+    .hash_input_length(ng_hash_input_length),
+    .hash_output_length(ng_hash_output_length),
+    .hash_message_in(ng_hash_message_in),
+
+    .e2(e2),
+    .e1(e1),
+    .r(r),
+    .noise_done(noise_done)
+);
 
   // Behavior of the module
-  always @(posedge clk) begin
-    if (rst) begin
-      valid <= 1'b0;
-    end else begin
-      // when noise gen is done, all outputs are ready
-      if (noise_done && public_matrix_done) begin
-        valid <= 1'b1;
-      end else begin
-        valid <= 1'b0;
+always_ff @(posedge clk or posedge rst) begin
+  if (rst) begin
+    pre_enc_state <= IDLE;
+    valid <= 1'b0;
+    hash_start <= 1'b0;
+    hash_mode <= 2'b00;
+    hash_input_length <= 16'd0;
+    hash_output_length <= 16'd0;
+    hash_message_in <= '0;
+  end else begin
+    hash_start <= 1'b0;
+    public_matrix_start <= 1'b0;
+    noise_gen_valid <= 1'b0;
+    valid <= 1'b0;
+
+    case (pre_enc_state)
+      IDLE: begin
+        if (start) begin
+          pre_enc_state <= HASH_RIN_START;
+        end
+      end
+
+      HASH_RIN_START: begin
+        hash_start <= 1'b1;
+        hash_mode <= 2'b00; // SHA3-256
+        hash_input_length <= 16'd256;
+        hash_output_length <= 16'd256;
+        hash_message_in <= '0;
+        hash_message_in[255:0] <= rin_reversed;
+
+        pre_enc_state <= HASH_RIN_WAIT;
+      end
+
+      HASH_RIN_WAIT: begin
+        if (hash_valid) begin
+          msg_latched <= hash_message_out[255:0];
+          pre_enc_state <= HASH_PK_START;
+        end
+      end
+
+      HASH_PK_START: begin
+        hash_start <= 1'b1;
+        hash_mode <= 2'b00; // SHA3-256
+        hash_input_length <= 16'd9472;
+        hash_output_length <= 16'd256;
+        hash_message_in <= ek_reversed;
+
+        pre_enc_state <= HASH_PK_WAIT;
+      end
+
+      HASH_PK_WAIT: begin
+        if (hash_valid) begin
+          hash_ek_latched <= hash_message_out[255:0];
+          pre_enc_state <= HASH_BUF0_START;
+        end
+      end
+
+      HASH_BUF0_START: begin
+        hash_start <= 1'b1;
+        hash_mode <= 2'b01;// SHA3-512
+        hash_input_length <= 16'd512;
+        hash_output_length <= 16'd512;
+        hash_message_in <= '0;
+        hash_message_in[511:0] <= {hash_ek_latched, msg_latched};
+
+        pre_enc_state <= HASH_BUF0_WAIT;
+      end
+
+      HASH_BUF0_WAIT: begin
+        if (hash_valid) begin
+          buf1 <= hash_message_out[511:0];
+          pre_k <= hash_message_out[255:0];
+          coin  <= hash_message_out[511:256];
+
+          pre_enc_state <= START_MATRIX_GEN;
+        end
+      end
+
+      START_MATRIX_GEN: begin
+        if (decode_pk_done) begin
+          public_matrix_start <= 1'b1;
+          pre_enc_state <= WAIT_MATRIX_GEN;
+        end
+      end
+
+      WAIT_MATRIX_GEN: begin
+        hash_start <= pmg_hash_start;
+        hash_mode <= pmg_hash_mode;
+        hash_input_length <= pmg_hash_input_length;
+        hash_output_length <= pmg_hash_output_length;
+        hash_message_in <= pmg_hash_message_in;
+
+      if (public_matrix_done) begin
+        noise_gen_valid <= 1'b1;
+        pre_enc_state <= WAIT_NOISE;
       end
     end
+
+    WAIT_NOISE: begin
+      hash_start <= ng_hash_start;
+      hash_mode <= ng_hash_mode;
+      hash_input_length <= ng_hash_input_length;
+      hash_output_length <= ng_hash_output_length;
+      hash_message_in <= ng_hash_message_in;
+
+      if (noise_done) begin
+        valid <= 1'b1;
+        pre_enc_state <= DONE;
+      end
+    end
+
+      DONE: begin
+        valid <= 1'b1;
+      end
+
+    endcase
   end
+end
 endmodule
 
