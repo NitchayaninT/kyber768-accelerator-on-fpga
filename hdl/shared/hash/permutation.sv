@@ -53,7 +53,6 @@ module permutation (
     end else if (!enable) begin
       round <= 5'h00;
       valid <= 1'b0;
-      state_buffer <= 1600'h0;
     end else begin
       // permutation active
       if (round == 5'h00) begin

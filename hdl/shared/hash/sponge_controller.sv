@@ -49,9 +49,8 @@ module sponge_controller #(
     logic [1599:0] state_reg;
     logic [MAX_RATE_BYTES*8-1:0] rate_block;
 
-    logic [7:0] absorb_idx; // block index for absorption, starts from 0s (1 block = rate_bytes)
-    logic [7:0] num_blocks;
-    logic [7:0] last_block;
+    logic [15:0] absorbed_bytes; // byte offset of the current absorb block = absorb_idx * rate_bytes
+    logic        is_last_block;  // true when the current block covers all remaining input bytes
 
     logic perm_enable;
     logic [1599:0] perm_out;
@@ -96,8 +95,9 @@ always_comb begin
     endcase
 end
 
-assign num_blocks = (input_len_bytes / rate_bytes) + 1; // calculate number of blocks
-assign last_block = num_blocks - 1; // get last block index
+// current block covers all input when absorbed_bytes + rate_bytes exceeds input length
+// (strict > required: when absorbed_bytes == input_len_bytes the padding block still belongs to the NEXT block)
+assign is_last_block = (absorbed_bytes + rate_bytes > input_len_bytes);
 
 // ABSORBPTION
 always_comb begin
@@ -107,7 +107,7 @@ always_comb begin
         logic [15:0] total_bytes_index;
         logic [7:0]  absorb_byte;
 
-        total_bytes_index = absorb_idx * rate_bytes + j;
+        total_bytes_index = absorbed_bytes + j;
         absorb_byte       = 8'h00;
 
         if (j < rate_bytes) begin
@@ -120,7 +120,7 @@ always_comb begin
                 absorb_byte = absorb_byte ^ domain_suffix;
             end
 
-            if ((absorb_idx == last_block) && (j == rate_bytes - 1)) begin
+            if (is_last_block && (j == rate_bytes - 1)) begin
                 absorb_byte = absorb_byte | 8'h80;
             end
 
@@ -132,12 +132,12 @@ end
 always_ff @(posedge clk or posedge rst) begin
     if (rst) begin
         phase       <= PH_IDLE;
-        state_reg   <= '0;
-        absorb_idx  <= '0;
-        message_out <= '0;
-        valid       <= 1'b0;
-        busy        <= 1'b0;
-        perm_enable <= 1'b0;
+        state_reg      <= '0;
+        absorbed_bytes <= '0;
+        message_out    <= '0;
+        valid          <= 1'b0;
+        busy           <= 1'b0;
+        perm_enable    <= 1'b0;
         bytes_squeezed <= '0;
     end else begin
         perm_enable <= 1'b0;
@@ -148,11 +148,11 @@ always_ff @(posedge clk or posedge rst) begin
                 busy <= 1'b0;
 
                 if (start) begin
-                    busy        <= 1'b1;
-                    state_reg   <= '0;
-                    absorb_idx  <= '0;
-                    message_out <= '0;
-                    phase       <= PH_ABSORB;
+                    busy           <= 1'b1;
+                    state_reg      <= '0;
+                    absorbed_bytes <= '0;
+                    message_out    <= '0;
+                    phase          <= PH_ABSORB;
                 end
             end
 
@@ -175,11 +175,11 @@ always_ff @(posedge clk or posedge rst) begin
                 if (perm_valid) begin
                     state_reg <= perm_out;
 
-                    if (absorb_idx == last_block) begin
+                    if (is_last_block) begin
                         phase <= PH_SQUEEZE;
                     end else begin
-                        absorb_idx <= absorb_idx + 1'b1; 
-                        phase      <= PH_RESET_PERMUTE;
+                        absorbed_bytes <= absorbed_bytes + rate_bytes;
+                        phase          <= PH_RESET_PERMUTE;
                     end
                 end
             end
