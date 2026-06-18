@@ -1,45 +1,31 @@
-# Encapsulation Workflow
-- Key gen -> creates rho and t_hat
-## -- INPUTS -- 
-- Input Public Key (rho, t hat)
-    - rho = 256 bits seed for A Matrix
-    - t hat = PK's polynomial vector, used for NTT
-        - t = [t0,t1,t2] where each t is a vector of k=3 polynomials and
-        each polynomial is degree-256
-- Input R = Random 256 bits from PRNG
+# sponge_contrller.sv
+- input size : one rate block at a time
+- output size : one rate block at a time
 
-## -- Pre/Post Indcpa Encryption -- 
-Everything that must happen before the NTT math block can run
-- Input Public key (rho, t hat)
-- R = random 256 bits
-- Output 
-    - m = SHA3-256(R), plain text message
-    - (coins, pre-k) = SHA3-512(SHA3-256(PK),m)
+## edge case
+Case 1: pk hash input (SHA3-256 of 1184-byte public key)
 
-## -- Public Matrix A generation -- 
-- Input PK into Decode PK
-    - Output Seed (rho)
-- Input seed (rho) of 256 bits into SHAKE128
-    - Output bytes stream of 672 bytes or 5376 bits
-- Input 9 streams 672 bytes into Rejection Sampling AT A TIME
-    - Output : 9 Polynomials with 256 coefficients, collect them 
-    in the Public matrix array 
+Rate = 136 bytes → 9 absorb blocks (⌈1184/136⌉ = 9), output = 32 bytes (1 squeeze)
 
-## -- Noise generation -- 
-- input R (random 256 bits)
-- Apply SHA3-256 to R : SHA3-256(R)
-    - Output : m  (plain text msg)
-- Construct coins
-    - Apply SHA3-512 to (SHA3-256(PK),m)
-    - Output : coins, pre-k (512 bits)
-        - Coins = first 32 bytes (256 bits)
-        - Pre-k = last 32 bytes (256 bits)
-- Input coins to SHAKE128 SHAKE128(coins || nonce), while nonce is a counter that increments by 1 for every polynomial we need.
-    - Output bytes stream of 1024 bits 
-- Input bytes to noise sampling
-    - Output : y,e’,e’’ = noise polynomials
-        - r = 3 polynomials
-        - e1 = 3 polynomials
-        - e2 = 1 polynomial
+IDLE
+→ ABSORB block 1 (136 bytes)  → PERMUTE
+→ ABSORB block 2 (136 bytes)  → PERMUTE
+→ ABSORB block 3 (136 bytes)  → PERMUTE
+→ ...
+→ ABSORB block 9 (32 bytes + padding) → PERMUTE   ← last_block here
+→ SQUEEZE (take first 32 bytes from state)
+→ DONE
 
-** Hash optimization -> [click here](./hash_optimization.md)
+---
+Case 2: pk size output (SHAKE128 matrix generation)
+
+Rate = 168 bytes, input = 34 bytes (1 block), output = ~504 bytes → 3 squeeze rounds
+
+IDLE
+→ ABSORB block 1 (34 bytes + padding) → PERMUTE   ← last_block here
+→ SQUEEZE block 1 (168 bytes out)
+→ PERMUTE
+→ SQUEEZE block 2 (168 bytes out)
+→ PERMUTE
+→ SQUEEZE block 3 (168 bytes o
+→ DONE

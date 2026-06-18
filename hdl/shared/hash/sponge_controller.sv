@@ -6,224 +6,181 @@ replaces the old seperated hashes into "sponge controller"
 - squeeze
 - output length */
 
-module sponge_controller #(
-    parameter int MAX_INPUT_BITS  = 9472, // (sha3-256 pk input)
-    parameter int MAX_OUTPUT_BITS = 5376 // (shake128 max output for public matrix)
-)(
-    input  logic clk,
-    input  logic rst,
+/* change 
+Problem : large message input/output -> large size register with variable indexing consume large LUT
+Fix : fix size input for sponge_controller => only one rate block at a time
+*/
 
-    input  logic start,
+`timescale 1ns / 1ps
+localparam int MAX_RATE_BYTES = 168; // max rate in bytes among the 4 modes (shake128 with 1344 bits)
+module sponge_controller (
+    input logic clk,
+    input logic rst,
+
+    input logic start,
+    input logic block_in_ready,
+    input logic last_block,  // marks final absorb block → transition to squeeze
+    input logic matrix_gen,  // 3 rounds of permute+squeeze (SHAKE128 matrix generation)
     output logic busy,
 
-    input  logic [1:0] hash_mode, // 00 sha3-256, 01 sha3-512, 10 shake128, 11 shake256
-    input  logic [15:0] input_len_bytes,
-    input  logic [15:0] output_len_bytes, // for shake only
+    input logic [1:0] hash_mode,  // 00 sha3-256, 01 sha3-512, 10 shake128, 11 shake256
 
-    input  logic [MAX_INPUT_BITS-1:0]  message_in,
-    output logic [MAX_OUTPUT_BITS-1:0] message_out,
-
-    output logic valid
+    input logic [MAX_RATE_BYTES*8-1:0] block_in,
+    output logic [MAX_RATE_BYTES*8-1:0] block_out,
+    output logic block_out_valid,
+    output logic done
 );
-    // FSM. Only squeezes once because it only produces 256 bits output
-    typedef enum logic [3:0] {
-        PH_IDLE,
-        PH_ABSORB,
-        PH_PERMUTE,
-        PH_RESET_PERMUTE,
-        PH_SQUEEZE,
-        PH_RESET_SQUEEZE_PERMUTE, // wait state between squeezing blocks so perm_valid has time to go low before starting the next permutation
-        PH_CLEAR,
-        PH_DONE
-    } phase_t;
 
-    phase_t phase;
+  // FSM. Only squeezes once because it only produces 256 bits output
+  typedef enum logic [3:0] {
+    SC_IDLE,
+    SC_INIT,
+    SC_WAIT_BLOCK_IN,
+    SC_ABSORB,
+    SC_PERMUTE,
+    SC_SQUEEZE,
+    SC_DONE
+  } sponge_control_state_t;
+  sponge_control_state_t current_state, next_state;
 
-    localparam int MAX_RATE_BYTES = 168; // max rate in bytes among the 4 modes (shake128 with 1344 bits)
-    
-    // internal signals
-    logic [15:0] rate_bytes;
-    logic [7:0]  domain_suffix;
-    logic [15:0] real_output_len;
+  logic [1599:0] state_reg;
+  logic [1:0] squeeze_count;  // use if matrix_gen
 
-    logic [1599:0] state_reg;
-    logic [MAX_RATE_BYTES*8-1:0] rate_block;
-
-    logic [15:0] absorbed_bytes; // byte offset of the current absorb block = absorb_idx * rate_bytes
-    logic        is_last_block;  // true when the current block covers all remaining input bytes
-
-    logic perm_enable;
-    logic [1599:0] perm_out;
-    logic perm_valid;
-
-    logic [15:0] bytes_squeezed; // keep track of bytes squeezed so far
-
-    permutation u_perm (
-        .clk(clk),
-        .enable(perm_enable),
-        .rst(rst),
-        .in(state_reg),
-        .state_out(perm_out),
-        .valid(perm_valid)
-    );
-
-always_comb begin
+  // specific variable for each HASH
+  logic [15:0] rate_bytes;
+  logic [7:0] domain_suffix;
+  always_comb begin
     case (hash_mode)
-        2'b00: begin // SHA3-256
-            rate_bytes      = 16'd136; // 1088 bits
-            domain_suffix   = 8'h06;
-            real_output_len = 16'd32;  // 256 bits
-        end
-
-        2'b01: begin // SHA3-512
-            rate_bytes      = 16'd72;  // 576 bits
-            domain_suffix   = 8'h06;
-            real_output_len = 16'd64;  // 512 bits
-        end
-
-        2'b10: begin // SHAKE128
-            rate_bytes      = 16'd168; // 1344 bits
-            domain_suffix   = 8'h1F;
-            real_output_len = output_len_bytes;
-        end
-
-        2'b11: begin // SHAKE256
-            rate_bytes      = 16'd136; // 1088 bits
-            domain_suffix   = 8'h1F;
-            real_output_len = output_len_bytes;
-        end
+      2'b00: begin  // SHA3-256
+        rate_bytes    = 16'd136;  // 1088 bits
+        domain_suffix = 8'h06;
+      end
+      2'b01: begin  // SHA3-512
+        rate_bytes    = 16'd72;  // 576 bits
+        domain_suffix = 8'h06;
+      end
+      2'b10: begin  // SHAKE128
+        rate_bytes    = 16'd168;  // 1344 bits
+        domain_suffix = 8'h1F;
+      end
+      2'b11: begin  // SHAKE256
+        rate_bytes    = 16'd136;  // 1088 bits
+        domain_suffix = 8'h1F;
+      end
     endcase
-end
+  end
 
-// current block covers all input when absorbed_bytes + rate_bytes exceeds input length
-// (strict > required: when absorbed_bytes == input_len_bytes the padding block still belongs to the NEXT block)
-assign is_last_block = (absorbed_bytes + rate_bytes > input_len_bytes);
+  // permutation
+  logic perm_enable;
+  logic [1599:0] perm_out;
+  logic perm_valid;
+  permutation u_perm (
+      .clk(clk),
+      .enable(perm_enable),
+      .rst(rst),
+      .in(state_reg),
+      .state_out(perm_out),
+      .valid(perm_valid)
+  );
 
-// ABSORBPTION
-always_comb begin
-    rate_block = '0;
 
-    for (int j = 0; j < MAX_RATE_BYTES; j = j + 1) begin
-        logic [15:0] total_bytes_index;
-        logic [7:0]  absorb_byte;
+  // Finite state machine : two always blocks
+  // combinational block
+  always_comb begin
+    // signal
+    busy            = 1'b1;
+    perm_enable     = 1'b0;
+    done            = 1'b0;
+    block_out_valid = 1'b0;
+    next_state      = SC_IDLE;
 
-        total_bytes_index = absorbed_bytes + j;
-        absorb_byte       = 8'h00;
+    case (current_state)
+      default: next_state = SC_IDLE;
+      SC_IDLE: begin
+        busy = 1'b0;
+        if (start) next_state = SC_INIT;
+      end
 
-        if (j < rate_bytes) begin
-            if (total_bytes_index < input_len_bytes) begin
-                absorb_byte = message_in[8*total_bytes_index +: 8];
-            end
+      SC_INIT: next_state = SC_WAIT_BLOCK_IN;
 
-            // domain suffix 
-            if (total_bytes_index == input_len_bytes) begin
-                absorb_byte = absorb_byte ^ domain_suffix;
-            end
+      SC_WAIT_BLOCK_IN: begin
+        next_state = SC_WAIT_BLOCK_IN;
+        if (block_in_ready) next_state = SC_ABSORB;
+      end
 
-            if (is_last_block && (j == rate_bytes - 1)) begin
-                absorb_byte = absorb_byte | 8'h80;
-            end
+      SC_ABSORB: next_state = SC_PERMUTE;
 
-            rate_block[8*j +: 8] = absorb_byte;
+      SC_PERMUTE: begin
+        next_state  = SC_PERMUTE;
+        perm_enable = 1'b1;
+        if (perm_valid) begin
+          next_state = SC_WAIT_BLOCK_IN;
+          if (last_block) next_state = SC_SQUEEZE;
         end
-    end
-end
+      end
 
-always_ff @(posedge clk or posedge rst) begin
+      SC_SQUEEZE: begin
+        block_out_valid = 1'b1;
+        next_state = SC_DONE;  // normal case just squeeze once
+        // matrix generation mode have to squeeze more than once
+        if (matrix_gen) begin
+          if (squeeze_count == 2) next_state = SC_DONE;
+          else next_state = SC_PERMUTE;
+        end
+      end
+
+      SC_DONE: begin
+        done = 1'b1;
+        busy = 1'b0;
+        next_state = SC_IDLE;
+      end
+    endcase
+  end
+
+
+  // sequential block
+  always_ff @(posedge clk) begin
     if (rst) begin
-        phase       <= PH_IDLE;
-        state_reg      <= '0;
-        absorbed_bytes <= '0;
-        message_out    <= '0;
-        valid          <= 1'b0;
-        busy           <= 1'b0;
-        perm_enable    <= 1'b0;
-        bytes_squeezed <= '0;
-    end else begin
-        perm_enable <= 1'b0;
-        valid       <= 1'b0;
-
-        case (phase)
-            PH_IDLE: begin
-                busy <= 1'b0;
-
-                if (start) begin
-                    busy           <= 1'b1;
-                    state_reg      <= '0;
-                    absorbed_bytes <= '0;
-                    message_out    <= '0;
-                    phase          <= PH_ABSORB;
-                end
-            end
-
-            PH_ABSORB: begin
-                busy <= 1'b1;
-
-                for (int k = 0; k < MAX_RATE_BYTES; k = k + 1) begin
-                    if (k < rate_bytes) begin
-                        state_reg[8*k +: 8] <= state_reg[8*k +: 8] ^ rate_block[8*k +: 8];
-                    end
-                end
-
-                phase <= PH_PERMUTE;
-            end
-
-            PH_PERMUTE: begin
-                busy        <= 1'b1;
-                perm_enable <= 1'b1;
-
-                if (perm_valid) begin
-                    state_reg <= perm_out;
-
-                    if (is_last_block) begin
-                        phase <= PH_SQUEEZE;
-                    end else begin
-                        absorbed_bytes <= absorbed_bytes + rate_bytes;
-                        phase          <= PH_RESET_PERMUTE;
-                    end
-                end
-            end
-
-            PH_RESET_PERMUTE: begin
-                busy  <= 1'b1;
-                phase <= PH_ABSORB;
-            end
-
-            PH_SQUEEZE: begin
-                busy <= 1'b1;
-                for (int k = 0; k < MAX_RATE_BYTES; k = k + 1) begin
-                    if ((k < rate_bytes) && ((bytes_squeezed + k) < real_output_len)) begin
-                        message_out[8*(bytes_squeezed + k) +: 8] <= state_reg[8*k +: 8];
-                    end
-                end
-
-                if ((bytes_squeezed + rate_bytes) >= real_output_len) begin
-                    bytes_squeezed <= '0;
-                    phase <= PH_DONE;
-                end else begin
-                    bytes_squeezed <= bytes_squeezed + rate_bytes;
-                    phase <= PH_RESET_SQUEEZE_PERMUTE;
-                end
-            end
-            PH_RESET_SQUEEZE_PERMUTE: begin
-                // wait 1 more cycle for perm_enable to reset
-                busy <= 1'b1;
-                phase <= PH_PERMUTE;
-            end
-            // 4. Done
-            PH_DONE: begin
-                valid <= 1'b1;
-                busy  <= 1'b0;
-                phase <= PH_CLEAR;
-            end
-
-            PH_CLEAR: begin
-                valid <= 1'b0;
-                busy  <= 1'b0;
-                phase <= PH_IDLE;
-            end
-        endcase
+      current_state <= SC_IDLE;
+      state_reg <= '0;
+      block_out <= '0;
+      squeeze_count <= 2'b0;
     end
-end
 
+    current_state <= next_state;
+    unique case (current_state)
+      SC_IDLE: ;
+
+      SC_INIT: begin
+        // clear  reg at the start of permutation
+        state_reg <= '0;
+        block_out <= '0;
+        squeeze_count <= 2'b0;
+      end
+
+      SC_WAIT_BLOCK_IN: ;
+
+      SC_ABSORB: begin
+        // MAX_RATE_BYTE*8=1344 
+        for (int k = 0; k < MAX_RATE_BYTES; k = k + 1) begin
+          if (k < rate_bytes) begin
+            state_reg[8*k+:8] <= state_reg[8*k+:8] ^ block_in[8*k+:8];
+          end
+        end
+      end
+
+      SC_PERMUTE: if (perm_valid) state_reg <= perm_out;
+
+      SC_SQUEEZE: begin
+        squeeze_count <= squeeze_count + 1;
+        for (int k = 0; k < MAX_RATE_BYTES; k = k + 1) begin
+          if (k < rate_bytes) begin
+            block_out[8*k+:8] <= state_reg[8*k+:8];
+          end
+        end
+      end
+
+      SC_DONE: ;
+    endcase
+  end
 endmodule

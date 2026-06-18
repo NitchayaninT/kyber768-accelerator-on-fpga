@@ -48,8 +48,8 @@ sponge_controller sponge_ctrl (
     .hash_mode(hash_mode),
     .input_len_bytes(input_length/8),
     .output_len_bytes(output_length/8),
-    .message_in(message_in),
-    .message_out(sponge_out),
+    .block_in(message_in),
+    .block_out(sponge_out),
     .valid(sponge_valid)
 );
 
