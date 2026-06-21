@@ -75,7 +75,7 @@ hdl/shared/hash/
 
 ### Hash Subsystem
 
-`hash_controller` accepts a 2-bit `hash_mode`:
+`hash_controller` accepts a 2-bit `hash_mode` and drives `sponge_controller` one rate-block at a time:
 | Mode | Algorithm | Rate | Domain suffix |
 |------|-----------|------|---------------|
 | `00` | SHA3-256  | 136 B | `0x06` |
@@ -83,7 +83,25 @@ hdl/shared/hash/
 | `10` | SHAKE128  | 168 B | `0x1F` |
 | `11` | SHAKE256  | 136 B | `0x1F` |
 
-`sponge_controller` takes one rate-block at a time via `block_in_ready`/`last_block` handshake. Set `matrix_gen=1` for SHAKE128 matrix generation to trigger 3 squeeze rounds.
+**Known Kyber768 input lengths** (`input_length` is a required port — same `hash_mode` can receive different lengths):
+| Use case | input_length |
+|---|---|
+| Seed / noise gen | 32 B |
+| PRF (seed \|\| nonce) | 33 B |
+| Matrix gen (seed \|\| i \|\| j) | 34 B |
+| G function (m \|\| H(pk)) | 64 B |
+| Public key hash | 1184 B |
+| Ciphertext hash | 1088 B |
+
+**`hash_controller` internal design:**
+- `rate_bytes` / `domain_suffix` decoded from `hash_mode` in `always_comb`
+- Padding built combinationally per block using `block_idx` counter: byte `i` of block `b` maps to global byte `b * rate_bytes + i`; domain suffix inserted at `== input_length`; `0x80` ORed into last byte of last block
+- `is_last_block = input_length < (block_idx + 1) * rate_bytes` — avoids hardware divider
+- `is_next_last_block = input_length < (block_idx + 2) * rate_bytes` — used when firing the next block after `perm_done` because `block_idx` increments via non-blocking assignment
+- Control uses a `running` flag (no state enum): `sponge_start` fires on `enable`, first `block_in_ready` fires one cycle later (SC_INIT→SC_WAIT_BLOCK_IN), subsequent blocks fire one cycle after `perm_done`
+- Squeeze output accumulated into `message_out` via `squeeze_idx` counter on each `block_out_valid`; `message_out` is 672 B (4 × 168 B) to cover matrix gen; caller slices smaller outputs
+
+**`sponge_controller`** takes one rate-block at a time via `block_in_ready`/`last_block` handshake. `rate_bytes` is an input port (owned by `hash_controller`). Set `matrix_gen=1` for SHAKE128 matrix generation to trigger 4 squeeze rounds (672 B total).
 
 ### Main Computation BRAM Layout
 

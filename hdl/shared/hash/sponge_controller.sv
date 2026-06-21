@@ -1,8 +1,8 @@
 /* ## sponge_controller (Control absorb/pad/squeeze)= handles SHA3/SHAKE behavior
 replaces the old seperated hashes into "sponge controller"
 - rate selection
-- padding/domain suffix
 - absorb
+- permute_control
 - squeeze
 - output length */
 
@@ -12,23 +12,25 @@ Fix : fix size input for sponge_controller => only one rate block at a time
 */
 
 `timescale 1ns / 1ps
-localparam int MAX_RATE_BYTES = 168; // max rate in bytes among the 4 modes (shake128 with 1344 bits)
+import params_pkg::*;
+
 module sponge_controller (
     input logic clk,
     input logic rst,
 
     input logic start,
+    input logic [15:0] rate_bytes,
     input logic block_in_ready,
     input logic last_block,  // marks final absorb block → transition to squeeze
     input logic matrix_gen,  // 3 rounds of permute+squeeze (SHAKE128 matrix generation)
+    output logic perm_done,
     output logic busy,
-
-    input logic [1:0] hash_mode,  // 00 sha3-256, 01 sha3-512, 10 shake128, 11 shake256
 
     input logic [MAX_RATE_BYTES*8-1:0] block_in,
     output logic [MAX_RATE_BYTES*8-1:0] block_out,
-    output logic block_out_valid,
-    output logic done
+    output logic block_out_valid,  // when squuze done
+    //output logic [1:0] squeeze_count,
+    output logic done  // when the entire hash finished
 );
 
   // FSM. Only squeezes once because it only produces 256 bits output
@@ -44,36 +46,13 @@ module sponge_controller (
   sponge_control_state_t current_state, next_state;
 
   logic [1599:0] state_reg;
-  logic [1:0] squeeze_count;  // use if matrix_gen
-
-  // specific variable for each HASH
-  logic [15:0] rate_bytes;
-  logic [7:0] domain_suffix;
-  always_comb begin
-    case (hash_mode)
-      2'b00: begin  // SHA3-256
-        rate_bytes    = 16'd136;  // 1088 bits
-        domain_suffix = 8'h06;
-      end
-      2'b01: begin  // SHA3-512
-        rate_bytes    = 16'd72;  // 576 bits
-        domain_suffix = 8'h06;
-      end
-      2'b10: begin  // SHAKE128
-        rate_bytes    = 16'd168;  // 1344 bits
-        domain_suffix = 8'h1F;
-      end
-      2'b11: begin  // SHAKE256
-        rate_bytes    = 16'd136;  // 1088 bits
-        domain_suffix = 8'h1F;
-      end
-    endcase
-  end
+  logic [1:0] squeeze_count;
 
   // permutation
   logic perm_enable;
   logic [1599:0] perm_out;
   logic perm_valid;
+  assign perm_done = perm_valid;
   permutation u_perm (
       .clk(clk),
       .enable(perm_enable),
@@ -124,7 +103,7 @@ module sponge_controller (
         next_state = SC_DONE;  // normal case just squeeze once
         // matrix generation mode have to squeeze more than once
         if (matrix_gen) begin
-          if (squeeze_count == 2) next_state = SC_DONE;
+          if (squeeze_count == 3) next_state = SC_DONE;
           else next_state = SC_PERMUTE;
         end
       end
