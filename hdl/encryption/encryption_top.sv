@@ -53,6 +53,7 @@ module encryption_top (
   logic [15:0] pre_hash_input_length;
   logic [15:0] pre_hash_output_length;
   logic [9471:0] pre_hash_message_in;
+  logic pre_hash_matrix_gen;
 
   // SIGNALS for hash modules
   logic hash_start;
@@ -62,12 +63,14 @@ module encryption_top (
   logic [9471:0] hash_message_in;
   logic [5375:0] hash_message_out;
   logic hash_valid;
-  
+  logic hash_matrix_gen;
+
   assign hash_start         = pre_hash_start;
   assign hash_mode          = pre_hash_mode;
   assign hash_input_length  = pre_hash_input_length;
   assign hash_output_length = pre_hash_output_length;
   assign hash_message_in    = pre_hash_message_in;
+  assign hash_matrix_gen    = pre_hash_matrix_gen;
 
 // HASH CONTROLLER 
 hash_controller shared_hash (
@@ -75,11 +78,12 @@ hash_controller shared_hash (
     .rst(rst),
     .enable(hash_start),
     .hash_mode(hash_mode),
+    .matrix_gen(hash_matrix_gen),
     .input_length(hash_input_length),
     .output_length(hash_output_length),
     .message_in(hash_message_in),
     .message_out(hash_message_out),
-    .valid(hash_valid) // this is also connected in pre/post enc so that they know when the hash output is valid
+    .valid(hash_valid)
 );
 
 // State machine for hashing
@@ -101,6 +105,7 @@ pre_encryption pre_encryption_uut (
     .hash_input_length(pre_hash_input_length),
     .hash_output_length(pre_hash_output_length),
     .hash_message_in(pre_hash_message_in),
+    .hash_matrix_gen(pre_hash_matrix_gen),
 
     .e2(e2),
     .e1(e1),

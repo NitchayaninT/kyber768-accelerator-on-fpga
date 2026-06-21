@@ -25,7 +25,8 @@ module public_matrix_gen(
     output logic [1:0]  hash_mode,
     output logic [15:0] hash_input_length,
     output logic [15:0] hash_output_length,
-    output logic [9471:0] hash_message_in
+    output logic [9471:0] hash_message_in,
+    output logic hash_matrix_gen
 );
 
 // -- Public Matrix Loop Gen -- //
@@ -113,6 +114,7 @@ module public_matrix_gen(
             hash_input_length <= 16'd0;
             hash_output_length <= 16'd0;
             hash_message_in <= '0;
+            hash_matrix_gen <= 1'b0;
 
             public_matrix_stream <= '0;
 
@@ -139,8 +141,9 @@ module public_matrix_gen(
                 SHAKE_START: begin
                       hash_start <= 1'b1;
                       hash_mode <= 2'b10; // SHAKE128
-                      hash_input_length <= 16'd272;
+                      hash_input_length <= 16'd34;   // 34 bytes = seed(32) + i(1) + j(1)
                       hash_output_length <= 16'd5376;
+                      hash_matrix_gen <= 1'b1;
                       hash_message_in <= '0;
                       hash_message_in[271:0] <= in_updated;
                       state_reg <= WAIT_SHAKE;

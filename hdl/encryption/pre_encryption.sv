@@ -62,6 +62,7 @@ module pre_encryption (
     output logic [15:0] hash_input_length,
     output logic [15:0] hash_output_length,
     output logic [9471:0] hash_message_in,
+    output logic hash_matrix_gen,
     output reg [KYBER_N - 1:0] pre_k,
     output reg valid
 );
@@ -123,6 +124,7 @@ logic [1:0]  pmg_hash_mode;
 logic [15:0] pmg_hash_input_length;
 logic [15:0] pmg_hash_output_length;
 logic [9471:0] pmg_hash_message_in;
+logic pmg_hash_matrix_gen;
 
 // noise hash request
 logic ng_hash_start;
@@ -130,16 +132,7 @@ logic [1:0]  ng_hash_mode;
 logic [15:0] ng_hash_input_length;
 logic [15:0] ng_hash_output_length;
 logic [9471:0] ng_hash_message_in;
-/* for decryption
-  // 2.5 Concatenate hash(ek) || msg. msg is at lower bits. Concatenate hash(ek) || m_prime if decryption
-  always_comb begin
-    if(mode==0)sha512_valid = sha3_valid[0] & sha3_valid[1];
-    else if(mode==1)sha512_valid = sha3_valid[1];
-    if (sha512_valid&&mode==0) buf0 = {hash_ek, msg};
-    else if (sha512_valid&&mode==1) buf0 = {hash_ek, m_prime};//for decrypt
-    else buf0 = '0;
-  end
-*/
+logic ng_hash_matrix_gen;
 
   // reverse order of bits for sha3-256 in pre encryption (so that the order can be comparable with C, otherwise the input would be in an incorrect order)
   // reason : rin and ek are DIRECT inputs from testbench
@@ -200,6 +193,7 @@ public_matrix_gen pmg_uut (
     .hash_input_length(pmg_hash_input_length),
     .hash_output_length(pmg_hash_output_length),
     .hash_message_in(pmg_hash_message_in),
+    .hash_matrix_gen(pmg_hash_matrix_gen),
 
     .public_matrix_done(public_matrix_done),
     .public_matrix_poly_index(public_matrix_poly_index),
@@ -220,6 +214,7 @@ noise_gen ng_uut (
     .hash_input_length(ng_hash_input_length),
     .hash_output_length(ng_hash_output_length),
     .hash_message_in(ng_hash_message_in),
+    .hash_matrix_gen(ng_hash_matrix_gen),
 
     .e2(e2),
     .e1(e1),
@@ -250,6 +245,7 @@ always_ff @(posedge clk or posedge rst) begin
     hash_input_length <= 16'd0;
     hash_output_length <= 16'd0;
     hash_message_in <= '0;
+    hash_matrix_gen <= 1'b0;
   end else begin
     hash_start <= 1'b0;
     public_matrix_start <= 1'b0;
@@ -266,8 +262,9 @@ always_ff @(posedge clk or posedge rst) begin
       HASH_RIN_START: begin
         hash_start <= 1'b1;
         hash_mode <= 2'b00; // SHA3-256
-        hash_input_length <= 16'd256;
+        hash_input_length <= 16'd32;   // 32 bytes
         hash_output_length <= 16'd256;
+        hash_matrix_gen <= 1'b0;
         hash_message_in <= '0;
         hash_message_in[255:0] <= rin_reversed;
 
@@ -284,8 +281,9 @@ always_ff @(posedge clk or posedge rst) begin
       HASH_PK_START: begin
         hash_start <= 1'b1;
         hash_mode <= 2'b00; // SHA3-256
-        hash_input_length <= 16'd9472;
+        hash_input_length <= 16'd1184; // 1184 bytes = KYBER_PUBLICKEYBYTES
         hash_output_length <= 16'd256;
+        hash_matrix_gen <= 1'b0;
         hash_message_in <= ek_reversed;
 
         pre_enc_state <= HASH_PK_WAIT;
@@ -301,8 +299,9 @@ always_ff @(posedge clk or posedge rst) begin
       HASH_BUF0_START: begin
         hash_start <= 1'b1;
         hash_mode <= 2'b01;// SHA3-512
-        hash_input_length <= 16'd512;
+        hash_input_length <= 16'd64;   // 64 bytes = hash_ek(32) + msg(32)
         hash_output_length <= 16'd512;
+        hash_matrix_gen <= 1'b0;
         hash_message_in <= '0;
         hash_message_in[511:0] <= {hash_ek_latched, msg_latched};
 
@@ -332,6 +331,7 @@ always_ff @(posedge clk or posedge rst) begin
         hash_input_length <= pmg_hash_input_length;
         hash_output_length <= pmg_hash_output_length;
         hash_message_in <= pmg_hash_message_in;
+        hash_matrix_gen <= pmg_hash_matrix_gen;
 
       if (public_matrix_done) begin
         noise_gen_valid <= 1'b1;
@@ -345,6 +345,7 @@ always_ff @(posedge clk or posedge rst) begin
       hash_input_length <= ng_hash_input_length;
       hash_output_length <= ng_hash_output_length;
       hash_message_in <= ng_hash_message_in;
+      hash_matrix_gen <= ng_hash_matrix_gen;
 
       if (noise_done) begin
         valid <= 1'b1;

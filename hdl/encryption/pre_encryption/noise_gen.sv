@@ -23,7 +23,8 @@ module noise_gen (
     output logic [1:0]  hash_mode,
     output logic [15:0] hash_input_length,
     output logic [15:0] hash_output_length,
-    output logic [9471:0] hash_message_in
+    output logic [9471:0] hash_message_in,
+    output logic hash_matrix_gen
 );
   // -- Noise gen -- //
   logic [4095:0] noise_poly_out;  // 256 coeffs, each coeff is 16 bits. 128 bytes per poly
@@ -106,6 +107,7 @@ module noise_gen (
         hash_input_length <= 16'd0;
         hash_output_length <= 16'd0;
         hash_message_in <= '0;
+        hash_matrix_gen <= 1'b0;
         noise_stream <= '0;
         noise_poly_index <= '0;
     end else begin
@@ -127,8 +129,9 @@ module noise_gen (
         SHAKE_START: begin
               hash_start <= 1'b1;
               hash_mode <= 2'b11; // SHAKE256
-              hash_input_length <= 16'd264;
+              hash_input_length <= 16'd33;  // 33 bytes = coin(32) + nonce(1)
               hash_output_length <= 16'd1024;
+              hash_matrix_gen <= 1'b0;
               hash_message_in <= '0;
               hash_message_in[263:0] <= shake256_input;
               state_reg <= WAIT_SHAKE;
