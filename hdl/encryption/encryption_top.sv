@@ -92,7 +92,7 @@ module encryption_top (
       .valid        (hash_valid)
   );
 
-  pre_encryption pre_encryption_uut (
+  pre_encryption pre_enc_inst (
       .clk              (clk),
       .start            (start),
       .rst              (rst),
@@ -120,7 +120,7 @@ module encryption_top (
       .valid            (pre_enc_done)
   );
 
-  main_computation main_computation_uut (
+  main_computation main_comp_inst (
       .clk   (clk),
       .reset (rst),
       .enable(pre_enc_done),
@@ -136,14 +136,14 @@ module encryption_top (
   genvar k;
   generate
     for (k = 0; k < KYBER_K; k = k + 1) begin : add_u
-      add add_u_uut (.a(x[k]), .b(e1[k]), .r(u[k]));
+      add add_u_inst (.a(x[k]), .b(e1[k]), .r(u[k]));
     end
   endgenerate
 
-  add add_v1_uut (.a(y),       .b(e2),      .r(y_add_e2));
-  add add_v2_uut (.a(y_add_e2),.b(msg_poly),.r(v));
+  add add_v1_inst (.a(y),       .b(e2),      .r(y_add_e2));
+  add add_v2_inst (.a(y_add_e2),.b(msg_poly),.r(v));
 
-  reduce_top reduce_top_uut (
+  reduce_top reduce_top_inst (
       .clk        (clk),
       .rst        (rst),
       .enable     (main_comp_done),
@@ -154,7 +154,7 @@ module encryption_top (
       .reduce_done(reduce_done)
   );
 
-  compress_encode #(.Q(KYBER_Q)) compress_encode (
+  compress_encode #(.Q(KYBER_Q)) compress_enc_inst (
       .enable       (reduce_done),
       .rst          (rst),
       .clk          (clk),
@@ -165,7 +165,7 @@ module encryption_top (
       .compress_done(compress_done)
   );
 
-  post_encryption post_encryption_uut (
+  post_encryption post_enc_inst (
       .clk              (clk),
       .enable           (compress_done),
       .prek_enable      (pre_enc_done),
