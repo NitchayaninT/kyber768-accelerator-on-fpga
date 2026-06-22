@@ -12,7 +12,6 @@ module subtract (
       logic signed [KYBER_POLY_WIDTH - 1:0] d;
       always_comb begin
         d = a[i] - b[i];
-        if (d < 0) d = d + KYBER_Q;
         r[i] = d[KYBER_POLY_WIDTH-1:0];
       end
     end

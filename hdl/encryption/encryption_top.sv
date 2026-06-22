@@ -11,9 +11,12 @@ module encryption_top (
     input start,
     input [KYBER_N - 1:0] r_in,  // random input for pre-encryption
     input [(KYBER_N)+(KYBER_K * KYBER_RQ_WIDTH * KYBER_N)-1:0] encryption_key, // public key from keygen
-    output logic [KYBER_N - 1:0] pre_k,  // pre-k for post-decryption
-    output logic [KYBER_N - 1:0] ss1,
-    output logic [(1088*8)-1:0] ct_out,  // 128 bytes for c2
+    input [KYBER_N-1:0]m_prime,//for decrypt
+    input [KYBER_N-1:0]c_prime,//for decrypt
+    input int mode, // ENC =  0, DEC = 1
+    output [KYBER_N - 1:0] pre_k,  // pre-k for post-decryption
+    output [KYBER_N - 1:0] ss1,
+    output [(1088*8)-1:0] ct_out,  // 128 bytes for c2
     output reg encrypt_done  // DONE WITH ENCRYPTION AAAAA
 );
   integer i, j;
@@ -108,7 +111,27 @@ pre_encryption pre_encryption_uut (
     .pre_k(pre_k),
     .valid(pre_enc_done)
 );
-
+/*
+  // Pre-encryption for decryption, must use m_prime and c_prime
+  pre_encryption pre_encryption_uut (
+      .clk(clk),
+      .start(start),
+      .rst(rst),
+      .r_in(r_in),
+      .encryption_key(encryption_key),
+      .m_prime(m_prime),//decrypt
+      .c_prime(c_prime),//decrypt
+      .mode(mode),//ENC =  0, DEC = 1
+      .e2(e2),
+      .e1(e1),
+      .r(r),
+      .t_vec(t_vec),
+      .a_t(a_t),
+      .msg_poly(msg_poly),
+      .pre_k(pre_k),
+      .valid(pre_enc_done)
+  );
+*/
   // Main computation (NTT, PACC, INTT) 
   // mode 0 for enc
   main_computation main_computation_uut (

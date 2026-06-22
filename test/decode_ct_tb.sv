@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module tb_decode_ct;
+module decode_ct_tb;
 
   logic clk = 0, rst = 1, enable = 0;
   always #5 clk = ~clk;

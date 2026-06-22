@@ -44,6 +44,11 @@ module pre_encryption (
     input logic [5375:0] hash_message_out,
 
     // OUTPUTS
+    /*for decryption, m_prime is used instead of msg from sha3-256, c_prime is used instead of coin in noise generation
+    input [KYBER_N-1:0]m_prime,//for decrypt
+    input [KYBER_N-1:0]c_prime,//for decrypt
+    input int mode,
+    */
     output logic signed [KYBER_POLY_WIDTH-1:0] e2[0:KYBER_N-1],
     output logic signed [KYBER_POLY_WIDTH-1:0] e1[0:KYBER_K-1][0:KYBER_N-1],
     output logic signed [KYBER_POLY_WIDTH-1:0] r[0:KYBER_K-1][0:KYBER_N-1],
@@ -98,7 +103,19 @@ typedef enum logic [3:0] {
     WAIT_NOISE,
     DONE
 } state_t;
-
+/*for decryption, sha3-256 only activates when encryption only because decryption uses m_prime instead
+  // SHA modules declaration
+  // 1. Hash R (random bits) to get msg
+  sha3_256 sha3_uut1 (
+      .clk(clk),
+      .rst(rst),
+      .enable(start&&(mode == ENC)),
+      .in(r_in),  // 256 bit random input
+      .input_len(256),
+      .output_string(msg),  // get msg
+      .done(sha3_valid[0])
+  );
+*/
 state_t pre_enc_state;
 // public matrix hash request
 logic pmg_hash_start;
@@ -113,6 +130,16 @@ logic [1:0]  ng_hash_mode;
 logic [15:0] ng_hash_input_length;
 logic [15:0] ng_hash_output_length;
 logic [9471:0] ng_hash_message_in;
+/* for decryption
+  // 2.5 Concatenate hash(ek) || msg. msg is at lower bits. Concatenate hash(ek) || m_prime if decryption
+  always_comb begin
+    if(mode==0)sha512_valid = sha3_valid[0] & sha3_valid[1];
+    else if(mode==1)sha512_valid = sha3_valid[1];
+    if (sha512_valid&&mode==0) buf0 = {hash_ek, msg};
+    else if (sha512_valid&&mode==1) buf0 = {hash_ek, m_prime};//for decrypt
+    else buf0 = '0;
+  end
+*/
 
   // reverse order of bits for sha3-256 in pre encryption (so that the order can be comparable with C, otherwise the input would be in an incorrect order)
   // reason : rin and ek are DIRECT inputs from testbench
@@ -135,8 +162,12 @@ logic [9471:0] ng_hash_message_in;
 
   // *** indcpa-enc starts from here ***
   // 4. Decode decompress msg
+  /* use m_prime instead of msg for decryption
+  logic [KYBER_N-1:0] msg_in;
+  assign msg_in = (mode == 0) ? msg : m_prime;//enc -> generated msg, dec -> m_prime*/
   decode_msg dmsg_uut (
       .msg(msg_latched),
+      //.msg(msg_in),
       .poly_msg(msg_poly_packed)
   );
 
@@ -195,7 +226,20 @@ noise_gen ng_uut (
     .r(r),
     .noise_done(noise_done)
 );
-
+/* // use c_prime instead of coin in decryption
+  logic [KYBER_N-1:0] coin_sel;
+  assign coin_sel = (mode == 0) ? coin : c_prime;
+  noise_gen ng_uut (
+      .clk(clk),
+      .rst(rst),
+      .enable(noise_gen_valid),
+      .coin(coin_sel),
+      .e2(e2),
+      .e1(e1),
+      .r(r),
+      .noise_done(noise_done)
+  );
+*/
   // Behavior of the module
 always_ff @(posedge clk or posedge rst) begin
   if (rst) begin

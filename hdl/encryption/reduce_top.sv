@@ -13,7 +13,7 @@ module reduce_top (
     output reg reduce_done
 );
     integer i;
-    logic [15:0] in_poly  [0:255];
+    logic signed [15:0] in_poly  [0:255];
     wire  [11:0] ready_out  [0:255];  
     wire  reduce_done_core;
     wire  busy;
