@@ -12,7 +12,7 @@ module encrytion_top_tb;
   logic encrypt_done;  // DONE WITH ENCRYPTION
   reg signed [15:0] coeff;
 
-  encryption_top encryption_top (
+  encryption_top uut (
       .clk           (clk),
       .rst           (rst),
       .start         (start),
@@ -27,7 +27,7 @@ module encrytion_top_tb;
   always #1 clk = !clk;
   initial begin
     $dumpfile("dump.vcd");
-    $dumpvars(0, encryption_top);
+    $dumpvars(0, uut);
     clk = 0;
   end
   initial begin
@@ -46,21 +46,21 @@ module encrytion_top_tb;
     repeat (2) @(posedge clk);
     start = 1;
 
-    wait (encryption_top.compress_done == 1);
+    wait (uut.compress_done == 1);
     $display("msg_latched bytes:");
     for (int i = 0; i < 32; i++)
-      $write("%02x", encryption_top.pre_encryption_uut.msg_latched[8*i +: 8]);
+      $write("%02x", uut.pre_enc_inst.msg_latched[8*i +: 8]);
     $write("\n");
     
     $display("hash_ek_latched bytes:");
     for (int i = 0; i < 32; i++)
-      $write("%02x", encryption_top.pre_encryption_uut.hash_ek_latched[8*i +: 8]);
+      $write("%02x", uut.pre_enc_inst.hash_ek_latched[8*i +: 8]);
     $write("\n");
     $display("A_T (public matrix)");
     for (j = 0; j < 9; j++) begin
       $display("=== A_t poly %0d ===", j);
       for (i = 0; i < 256; i++) begin
-        coeff = encryption_top.a_t[j][i];
+        coeff = uut.a_t[j][i];
         $write("%0d ", coeff);
         if ((i % 16) == 15) $write("\n");
       end
@@ -71,7 +71,7 @@ module encrytion_top_tb;
     for (j = 0; j < 3; j++) begin
       $display("=== r %0d ===", j);
       for (i = 0; i < 256; i++) begin
-        coeff = encryption_top.r[j][i];
+        coeff = uut.r[j][i];
         $write("%0d ", coeff);
         if ((i % 16) == 15) $write("\n");
       end
@@ -80,7 +80,7 @@ module encrytion_top_tb;
     
     $display("coin bytes absorbed by noise:");
     for (int i = 0; i < 32; i++) begin
-      $write("%02x", encryption_top.pre_encryption_uut.coin[8*i +: 8]);
+      $write("%02x", uut.pre_enc_inst.coin[8*i +: 8]);
     end
     $write("\n");
 
@@ -89,7 +89,7 @@ module encrytion_top_tb;
     for (j = 0; j < 3; j++) begin
       $display("=== e1 %0d ===", j);
       for (i = 0; i < 256; i++) begin
-        coeff = encryption_top.e1[j][i];
+        coeff = uut.e1[j][i];
         $write("%0d ", coeff);
         if ((i % 16) == 15) $write("\n");
       end
@@ -98,7 +98,7 @@ module encrytion_top_tb;
 
     $display("NOISE e2");
     for (i = 0; i < 256; i++) begin
-      coeff = encryption_top.e2[i];
+      coeff = uut.e2[i];
       $write("%0d ", coeff);
       if ((i % 16) == 15) $write("\n");
     end
@@ -109,7 +109,7 @@ module encrytion_top_tb;
       $display("=== x %0d ===", j);
       for (i = 0; i < 256; i++) begin
         // pack 16 unpacked bits into a packed vector
-        coeff = encryption_top.x[j][i];
+        coeff = uut.x[j][i];
         $write("%0d ", coeff);
         if ((i % 16) == 15) $write("\n");
       end
@@ -117,7 +117,7 @@ module encrytion_top_tb;
     end
     $display("Y (after main compute)");
     for (i = 0; i < 256; i++) begin
-      coeff = encryption_top.y[i];
+      coeff = uut.y[i];
       $write("%0d ", coeff);
       if ((i % 16) == 15) $write("\n");
     end
@@ -128,7 +128,7 @@ module encrytion_top_tb;
       $display("=== u %0d ===", j);
       for (i = 0; i < 256; i++) begin
         // pack 16 unpacked bits into a packed vector
-        coeff = encryption_top.u[j][i];
+        coeff = uut.u[j][i];
         $write("%0d ", coeff);
         if ((i % 16) == 15) $write("\n");
       end
@@ -137,7 +137,7 @@ module encrytion_top_tb;
     
     $display("V after addition");
       for (i = 0; i < 256; i++) begin
-      coeff = encryption_top.v[i];
+      coeff = uut.v[i];
       $write("%0d ", coeff);
       if ((i % 16) == 15) $write("\n");
     end
@@ -148,7 +148,7 @@ module encrytion_top_tb;
       $display("=== u %0d ===", j);
       for (i = 0; i < 256; i++) begin
         // pack 16 unpacked bits into a packed vector
-        coeff = encryption_top.out_u[j][i];
+        coeff = uut.out_u[j][i];
         $write("%0d ", coeff);
         if ((i % 16) == 15) $write("\n");
       end
@@ -157,7 +157,7 @@ module encrytion_top_tb;
     
     $display("V after reduce to 12 bits");
       for (i = 0; i < 256; i++) begin
-      coeff = encryption_top.out_v[i];
+      coeff = uut.out_v[i];
       $write("%0d ", coeff);
       if ((i % 16) == 15) $write("\n");
     end
@@ -166,14 +166,14 @@ module encrytion_top_tb;
 
     $display("c1 (960 bytes):\n");
     for (int i = 0; i < 960; i++) begin
-      coeff = encryption_top.c1[i];
+      coeff = uut.c1[i];
       $write("%02x ", coeff);
       if ((i % 16) == 15) $write("\n");
     end
     $display();
     $display("c2 (128 bytes):\n");
     for (int i = 0; i < 128; i++) begin
-      coeff = encryption_top.c2[i];
+      coeff = uut.c2[i];
       $write("%02x ", coeff);
       if ((i % 16) == 15) $write("\n");
     end
@@ -183,19 +183,19 @@ module encrytion_top_tb;
     #10
     $display("post ct_hash bytes:");
     for (int i = 0; i < 32; i++) begin
-      $write("%02x", encryption_top.post_encryption_uut.ct_hash_reg[8*i +: 8]);
+      $write("%02x", uut.post_enc_inst.ct_hash_reg[8*i +: 8]);
     end
     $write("\n");
 
     $display("post KDF input bytes:");
     for (int i = 0; i < 64; i++) begin
-      $write("%02x", encryption_top.post_encryption_uut.ct_prek_reg[8*i +: 8]);
+      $write("%02x", uut.post_enc_inst.ct_prek_reg[8*i +: 8]);
     end
     $write("\n");
 
     $display("post raw shake bytes:");
     for (int i = 0; i < 32; i++) begin
-      $write("%02x", encryption_top.post_encryption_uut.shake_out[8*i +: 8]);
+      $write("%02x", uut.post_enc_inst.shake_out[8*i +: 8]);
     end
     $write("\n");
 

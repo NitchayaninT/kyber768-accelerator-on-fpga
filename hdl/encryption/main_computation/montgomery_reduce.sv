@@ -5,7 +5,7 @@ module montgomery_reduce (
     output logic signed [15:0] r
 );
   localparam signed [15:0] q = 16'd3329;
-  localparam signed [31:0] qinv = 31'd62209;  // -q^{-1} mod 2^16
+  localparam signed [31:0] qinv = 32'd62209;  // -q^{-1} mod 2^16
 
   logic signed [31:0] t;
   logic signed [15:0] u;

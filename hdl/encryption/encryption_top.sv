@@ -1,7 +1,4 @@
 // ENCRYPTION_TOP MODULE
-/*
-From Pre-Encryption to Post-Encryption
-*/
 `timescale 1ns / 1ps
 import params_pkg::*;
 
@@ -31,164 +28,134 @@ module encryption_top (
   logic signed [15:0] u[0:2][0:255];
   logic signed [15:0] v[0:255];
   logic signed [15:0] y_add_e2[0:255];
-
   logic [11:0] out_u[0:2][0:255];
   logic [11:0] out_v[0:255];
-  logic [7:0] c1[0:959];  // 960 bytes
-  logic [7:0] c2[0:127];  // 128 bytes
+  logic [7:0] c1[0:959];
+  logic [7:0] c2[0:127];
 
   // done signals
   logic pre_enc_done;
   logic main_comp_done;
-  logic add_u_done;
-  logic add_v1_done;
-  logic add_v2_done;
-  logic add_done;
   logic reduce_done;
   logic compress_done;
 
-  // for hash controller's signals (so that it only initiates the hash module when needed, not all hashes at the same time)
-  logic pre_hash_start;
-  logic [1:0] pre_hash_mode;
+  // ---- Shared hash controller signals ----
+  // pre_encryption drives these during pre-enc phase
+  logic        pre_hash_start;
+  logic [1:0]  pre_hash_mode;
   logic [15:0] pre_hash_input_length;
-  logic [15:0] pre_hash_output_length;
-  logic [9471:0] pre_hash_message_in;
+  logic        pre_hash_matrix_gen;
+  logic        pre_hash_msg_wr_en;
+  logic [10:0] pre_hash_msg_wr_addr;
+  logic [ 7:0] pre_hash_msg_wr_data;
 
-  // SIGNALS for hash modules
-  logic hash_start;
-  logic [1:0] hash_mode;
+  // post_encryption drives these during post-enc phase
+  logic        post_hash_start;
+  logic [1:0]  post_hash_mode;
+  logic [15:0] post_hash_input_length;
+  logic        post_hash_matrix_gen;
+  logic        post_hash_msg_wr_en;
+  logic [10:0] post_hash_msg_wr_addr;
+  logic [ 7:0] post_hash_msg_wr_data;
+
+  // Muxed hash controller inputs; post_enc takes over once pre_enc_done goes high
+  logic        hash_start;
+  logic [1:0]  hash_mode;
   logic [15:0] hash_input_length;
-  logic [15:0] hash_output_length;
-  logic [9471:0] hash_message_in;
+  logic        hash_matrix_gen;
+  logic        hash_msg_wr_en;
+  logic [10:0] hash_msg_wr_addr;
+  logic [ 7:0] hash_msg_wr_data;
   logic [5375:0] hash_message_out;
-  logic hash_valid;
-  
-  assign hash_start         = pre_hash_start;
-  assign hash_mode          = pre_hash_mode;
-  assign hash_input_length  = pre_hash_input_length;
-  assign hash_output_length = pre_hash_output_length;
-  assign hash_message_in    = pre_hash_message_in;
+  logic        hash_valid;
 
-// HASH CONTROLLER 
-hash_controller shared_hash (
-    .clk(clk),
-    .rst(rst),
-    .enable(hash_start),
-    .hash_mode(hash_mode),
-    .input_length(hash_input_length),
-    .output_length(hash_output_length),
-    .message_in(hash_message_in),
-    .message_out(hash_message_out),
-    .valid(hash_valid) // this is also connected in pre/post enc so that they know when the hash output is valid
-);
+  assign hash_start        = pre_enc_done ? post_hash_start        : pre_hash_start;
+  assign hash_mode         = pre_enc_done ? post_hash_mode         : pre_hash_mode;
+  assign hash_input_length = pre_enc_done ? post_hash_input_length : pre_hash_input_length;
+  assign hash_matrix_gen   = pre_enc_done ? post_hash_matrix_gen   : pre_hash_matrix_gen;
+  assign hash_msg_wr_en    = pre_enc_done ? post_hash_msg_wr_en    : pre_hash_msg_wr_en;
+  assign hash_msg_wr_addr  = pre_enc_done ? post_hash_msg_wr_addr  : pre_hash_msg_wr_addr;
+  assign hash_msg_wr_data  = pre_enc_done ? post_hash_msg_wr_data  : pre_hash_msg_wr_data;
 
-// State machine for hashing
-// for pre-encryption, hashes are called 5 times
-// for post-encryption, hashes are called 2 times (hash ct, then hash pre_k+hash_ct)
-// Pre-encryption
-pre_encryption pre_encryption_uut (
-    .clk(clk),
-    .start(start),
-    .rst(rst),
-    .r_in(r_in),
-    .encryption_key(encryption_key),
+  // Shared hash controller
+  hash_controller shared_hash (
+      .clk          (clk),
+      .rst          (rst),
+      .msg_wr_en    (hash_msg_wr_en),
+      .msg_wr_addr  (hash_msg_wr_addr),
+      .msg_wr_data  (hash_msg_wr_data),
+      .enable       (hash_start),
+      .hash_mode    (hash_mode),
+      .matrix_gen   (hash_matrix_gen),
+      .input_length (hash_input_length),
+      .message_out  (hash_message_out),
+      .valid        (hash_valid)
+  );
 
-    // shared hash connection
-    .hash_valid(hash_valid),
-    .hash_message_out(hash_message_out),
-    .hash_start(pre_hash_start),
-    .hash_mode(pre_hash_mode),
-    .hash_input_length(pre_hash_input_length),
-    .hash_output_length(pre_hash_output_length),
-    .hash_message_in(pre_hash_message_in),
-
-    .e2(e2),
-    .e1(e1),
-    .r(r),
-    .t_vec(t_vec),
-    .a_t(a_t),
-    .msg_poly(msg_poly),
-    .pre_k(pre_k),
-    .valid(pre_enc_done)
-);
-/*
-  // Pre-encryption for decryption, must use m_prime and c_prime
-  pre_encryption pre_encryption_uut (
-      .clk(clk),
-      .start(start),
-      .rst(rst),
-      .r_in(r_in),
-      .encryption_key(encryption_key),
+  pre_encryption pre_enc_inst (
+      .clk              (clk),
+      .start            (start),
+      .rst              (rst),
+      .r_in             (r_in),
+      .encryption_key   (encryption_key),
       .m_prime(m_prime),//decrypt
       .c_prime(c_prime),//decrypt
       .mode(mode),//ENC =  0, DEC = 1
-      .e2(e2),
-      .e1(e1),
-      .r(r),
-      .t_vec(t_vec),
-      .a_t(a_t),
-      .msg_poly(msg_poly),
-      .pre_k(pre_k),
-      .valid(pre_enc_done)
-  );
-*/
-  // Main computation (NTT, PACC, INTT) 
-  // mode 0 for enc
-  main_computation main_computation_uut (
-      .clk(clk),
-      .reset(rst),
-      .enable(pre_enc_done),  // start main computation when pre-encryption is done
-      .mode(0),
-      .a_t(a_t),
-      .t_s(t_vec),
-      .r_u(r),
-      .u(x),  // signed
-      .v_a(y),  // signed
-      .valid(main_comp_done)
+      .hash_valid       (hash_valid),
+      .hash_message_out (hash_message_out),
+      .hash_start       (pre_hash_start),
+      .hash_mode        (pre_hash_mode),
+      .hash_input_length(pre_hash_input_length),
+      .hash_matrix_gen  (pre_hash_matrix_gen),
+      .hash_msg_wr_en   (pre_hash_msg_wr_en),
+      .hash_msg_wr_addr (pre_hash_msg_wr_addr),
+      .hash_msg_wr_data (pre_hash_msg_wr_data),
+      .e2               (e2),
+      .e1               (e1),
+      .r                (r),
+      .t_vec            (t_vec),
+      .a_t              (a_t),
+      .msg_poly         (msg_poly),
+      .pre_k            (pre_k),
+      .valid            (pre_enc_done)
   );
 
-  // Addition
-  // generate u
+  main_computation main_comp_inst (
+      .clk   (clk),
+      .reset (rst),
+      .enable(pre_enc_done),
+      .mode  (0),
+      .a_t   (a_t),
+      .t_s   (t_vec),
+      .r_u   (r),
+      .u     (x),
+      .v_a   (y),
+      .valid (main_comp_done)
+  );
+
   genvar k;
   generate
     for (k = 0; k < KYBER_K; k = k + 1) begin : add_u
-      add add_u_uut (
-          .a(x[k]),
-          .b(e1[k]),
-          .r(u[k])    // output 1
-      );
+      add add_u_inst (.a(x[k]), .b(e1[k]), .r(u[k]));
     end
   endgenerate
 
-  // generate v
-  add add_v1_uut (
-      .a(y),
-      .b(e2),
-      .r(y_add_e2)
-  );
+  add add_v1_inst (.a(y),       .b(e2),      .r(y_add_e2));
+  add add_v2_inst (.a(y_add_e2),.b(msg_poly),.r(v));
 
-  add add_v2_uut (
-      .a(y_add_e2),
-      .b(msg_poly),
-      .r(v)  // output 2
-  );
-
-  // Reduce (need a 2nd top module to control u, v inputs)
-  reduce_top reduce_top_uut (
-      .clk(clk),
-      .rst(rst),
-      .enable(main_comp_done),  // start reduce when addition is done
-      .u(u),
-      .v(v),
-      .out_u(out_u),  // store reduced u (not signed)
-      .out_v(out_v),  // store reduced v (not signed)
+  reduce_top reduce_top_inst (
+      .clk        (clk),
+      .rst        (rst),
+      .enable     (main_comp_done),
+      .u          (u),
+      .v          (v),
+      .out_u      (out_u),
+      .out_v      (out_v),
       .reduce_done(reduce_done)
   );
 
-  compress_encode #(
-      .Q(KYBER_Q)
-  ) compress_encode (
-      .enable       (reduce_done),  // start compression when reduction is done
+  compress_encode #(.Q(KYBER_Q)) compress_enc_inst (
+      .enable       (reduce_done),
       .rst          (rst),
       .clk          (clk),
       .u            (out_u),
@@ -198,25 +165,25 @@ pre_encryption pre_encryption_uut (
       .compress_done(compress_done)
   );
 
-    post_encryption post_encryption_uut (
-        .clk(clk),
-        .enable(compress_done),
-        .prek_enable(pre_enc_done),
-        .rst(rst),
-        .pre_k(pre_k),
-        .c1_in(c1),
-        .c2_in(c2),
-        .ct(ct_out),
-        .ss(ss1),
-        // shared hash connection
-        .hash_valid(hash_valid),
-        .hash_message_out(hash_message_out),
-        .hash_start(hash_start),
-        .hash_mode(hash_mode),
-        .hash_input_length(hash_input_length),
-        .hash_output_length(hash_output_length),
-        .hash_message_in(hash_message_in),
-        .encrypt_done(encrypt_done)
-    );
+  post_encryption post_enc_inst (
+      .clk              (clk),
+      .enable           (compress_done),
+      .prek_enable      (pre_enc_done),
+      .rst              (rst),
+      .pre_k            (pre_k),
+      .c1_in            (c1),
+      .c2_in            (c2),
+      .ct               (ct_out),
+      .ss               (ss1),
+      .hash_valid       (hash_valid),
+      .hash_message_out (hash_message_out),
+      .hash_start       (post_hash_start),
+      .hash_mode        (post_hash_mode),
+      .hash_input_length(post_hash_input_length),
+      .hash_matrix_gen  (post_hash_matrix_gen),
+      .hash_msg_wr_en   (post_hash_msg_wr_en),
+      .hash_msg_wr_addr (post_hash_msg_wr_addr),
+      .hash_msg_wr_data (post_hash_msg_wr_data),
+      .encrypt_done     (encrypt_done)
+  );
 endmodule
-

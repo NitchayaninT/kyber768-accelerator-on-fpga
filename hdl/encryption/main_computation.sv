@@ -495,7 +495,7 @@ module main_computation (
 
   // always_ff for loadram
   always_ff @(posedge clk) begin
-    lr_current_state = lr_next_state;
+    lr_current_state <= lr_next_state;
     case (lr_current_state)
       MC_LR_IDLE: begin
         lr_count <= 6'd0;
@@ -657,7 +657,7 @@ module main_computation (
   end
 
   always_ff @(posedge clk) begin
-    pvbm_current_state = pvbm_next_state;
+    pvbm_current_state <= pvbm_next_state;
   end
 
   // **************************************************
@@ -740,35 +740,35 @@ module main_computation (
         MC_INV_NTT_IDLE: ;
         MC_INV_NTT_AT0: begin
           if (ntt_ram_we_predec) begin
-            u[0][wo_addra[0]] = $signed(inv_ntt_ram_dina[`LOWER_BITS]);
-            u[0][wo_addra[1]] = $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
-            u[0][wo_addrb[0]] = $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
-            u[0][wo_addrb[1]] = $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
+            u[0][wo_addra[0]] <= $signed(inv_ntt_ram_dina[`LOWER_BITS]);
+            u[0][wo_addra[1]] <= $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
+            u[0][wo_addrb[0]] <= $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
+            u[0][wo_addrb[1]] <= $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
 
           end
         end
         MC_INV_NTT_AT1: begin
           if (ntt_ram_we_predec) begin
-            u[1][wo_addra[0]] = $signed(inv_ntt_ram_dina[`LOWER_BITS]);
-            u[1][wo_addra[1]] = $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
-            u[1][wo_addrb[0]] = $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
-            u[1][wo_addrb[1]] = $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
+            u[1][wo_addra[0]] <= $signed(inv_ntt_ram_dina[`LOWER_BITS]);
+            u[1][wo_addra[1]] <= $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
+            u[1][wo_addrb[0]] <= $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
+            u[1][wo_addrb[1]] <= $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
           end
         end
         MC_INV_NTT_AT2: begin
           if (ntt_ram_we_predec) begin
-            u[2][wo_addra[0]] = $signed(inv_ntt_ram_dina[`LOWER_BITS]);
-            u[2][wo_addra[1]] = $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
-            u[2][wo_addrb[0]] = $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
-            u[2][wo_addrb[1]] = $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
+            u[2][wo_addra[0]] <= $signed(inv_ntt_ram_dina[`LOWER_BITS]);
+            u[2][wo_addra[1]] <= $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
+            u[2][wo_addrb[0]] <= $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
+            u[2][wo_addrb[1]] <= $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
           end
         end
         MC_INV_NTT_T_S: begin
           if (ntt_ram_we_predec) begin
-            v_a[wo_addra[0]] = $signed(inv_ntt_ram_dina[`LOWER_BITS]);
-            v_a[wo_addra[1]] = $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
-            v_a[wo_addrb[0]] = $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
-            v_a[wo_addrb[1]] = $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
+            v_a[wo_addra[0]] <= $signed(inv_ntt_ram_dina[`LOWER_BITS]);
+            v_a[wo_addra[1]] <= $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
+            v_a[wo_addrb[0]] <= $signed(inv_ntt_ram_dinb[`LOWER_BITS]);
+            v_a[wo_addrb[1]] <= $signed(inv_ntt_ram_dinb[`HIGHER_BITS]);
           end
         end
         MC_INV_NTT_DONE: ;

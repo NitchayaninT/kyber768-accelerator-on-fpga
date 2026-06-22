@@ -1,0 +1,12 @@
+VCD info: dumpfile dump.vcd opened for output.
+WARNING: hdl/shared/hash/sponge_controller.sv:151: value is unhandled for priority or unique case statement
+         Time: 5000  Scope: sponge_controller_tb.dut
+-- Test 1: SHA3-256 empty string --
+block_out[255:0] = 4a43f8804b0ad882fa493be44dff80f562d661a05647c15166d71ebff8c6ffa7
+expected         = a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a
+-- Test 2: SHAKE128 matrix gen (3 squeezes) --
+squeeze block_out = 26ef66faac6e1aeb88bceff693803bd73e850576504560617d828fe8a42b9c7f
+squeeze block_out = 77f8238d8b5358ef2db380b5aeab9166198b3407dfe927b9df1994a6fde17b76
+squeeze block_out = e7305ea7534ec0264a1d7224312be7bf06eef2dff23571913d3a520b82c6ff0a
+matrix gen done
+test/hash/sponge_controller_tb.sv:134: $finish called at 1295000 (1ps)
