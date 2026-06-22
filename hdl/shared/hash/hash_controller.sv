@@ -78,21 +78,20 @@ module hash_controller (
       .done           (sponge_done)
   );
   
-  // padding logic — block_idx driven by control below
-  logic [15:0] block_idx;
+  // block_start: registered byte offset of current block, updated by addition only —
+  // avoids a combinational 16x16 multiplier in the block_data mux
+  logic [15:0] block_start;
   logic        is_last_block, is_next_last_block;
-  // current block contains the suffix byte
-  assign is_last_block      = (input_length < (block_idx + 16'd1) * rate_bytes);
-  // next block (block_idx+1) will contain the suffix byte
-  assign is_next_last_block = (input_length < (block_idx + 16'd2) * rate_bytes);
+  assign is_last_block      = (input_length < block_start + rate_bytes);
+  assign is_next_last_block = (input_length < block_start + rate_bytes + rate_bytes);
 
   always_comb begin
     block_data = '0;
     for (int i = 0; i < MAX_RATE_BYTES; i++) begin
       if (i < rate_bytes) begin
-        if ((block_idx * rate_bytes + i) < input_length)
-          block_data[8*i +: 8] = message_in[8*(block_idx * rate_bytes + i) +: 8];
-        else if ((block_idx * rate_bytes + i) == input_length)
+        if ((block_start + i) < input_length)
+          block_data[8*i +: 8] = message_in[8*(block_start + i) +: 8];
+        else if ((block_start + i) == input_length)
           block_data[8*i +: 8] = domain_suffix;
         // else: stays 0
         if (is_last_block && (i == rate_bytes - 1))
@@ -114,7 +113,7 @@ module hash_controller (
   always_ff @(posedge clk) begin
     if (rst) begin
       running           <= 1'b0;
-      block_idx         <= '0;
+      block_start       <= '0;
       squeeze_idx       <= '0;
       sponge_start      <= 1'b0;
       sponge_start_d    <= 1'b0;
@@ -132,7 +131,7 @@ module hash_controller (
 
       if (enable && !running) begin
         running      <= 1'b1;
-        block_idx    <= '0;
+        block_start  <= '0;
         squeeze_idx  <= '0;
         message_out  <= '0;
         sponge_start <= 1'b1;
@@ -147,7 +146,7 @@ module hash_controller (
 
         // subsequent blocks: 1 cycle after perm_done (SC_PERMUTE → SC_WAIT_BLOCK_IN)
         if (sponge_perm_done && !is_last_block) begin
-          block_idx      <= block_idx + 16'd1;
+          block_start    <= block_start + rate_bytes;
           block_in_ready <= 1'b1;
           last_block     <= is_next_last_block;
         end
