@@ -63,7 +63,7 @@ module public_matrix_gen(
     localparam RESET_REJ  = 3'd5;
     localparam WAIT_REJ   = 3'd6;
     localparam POLY_READY = 3'd7;
-    localparam DONE       = 3'd8;  // Note: 4-bit state needed
+    localparam DONE       = 4'd8;
 
     reg [3:0] state_reg;
     reg [5:0] load_cnt;   // counts 0..33 (34 bytes)
