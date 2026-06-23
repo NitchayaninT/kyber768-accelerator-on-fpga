@@ -19,7 +19,7 @@ module basemul (
   genvar g;
   generate
     for (g = 0; g < 2; g++) begin : g_fqmul
-      fqmul fqmul_uut (
+      fqmul fqmul_inst (
           .clk(clk),
           .enable(fqmul_enable),
           .a(a_in[g]),

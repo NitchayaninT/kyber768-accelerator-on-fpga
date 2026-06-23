@@ -135,7 +135,7 @@ module pre_encryption (
   assign buf0_data = {hash_ek_latched, msg_latched};
 
   // decode_msg
-  decode_msg dmsg_uut (
+  decode_msg dmsg_inst (
       .msg(msg_latched),
       //.msg(msg_in),
       .poly_msg(msg_poly_packed)
@@ -148,7 +148,7 @@ module pre_encryption (
   end
 
   // decode_pk
-  decode_pk dpk_uut (
+  decode_pk dpk_inst (
       .public_key(encryption_key),
       .rho(rho),
       .t_trans(t_vec),
@@ -156,7 +156,7 @@ module pre_encryption (
   );
 
   // public_matrix_gen
-  public_matrix_gen pmg_uut (
+  public_matrix_gen pmg_inst (
       .clk(clk),
       .rst(rst),
       .enable(public_matrix_start),
@@ -179,7 +179,7 @@ module pre_encryption (
   logic [KYBER_N-1:0] coin_sel;
   assign coin_sel = (mode == 0) ? coin : c_prime;
   // noise_gen
-  noise_gen ng_uut (
+  noise_gen ng_inst (
       .clk(clk),
       .rst(rst),
       .enable(noise_gen_valid),

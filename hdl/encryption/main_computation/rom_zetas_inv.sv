@@ -12,7 +12,14 @@ module rom_zetas_inv (
   reg signed [15:0] RAM[128];
 
   initial begin
-    $readmemh("rom_zetas_inv.mem", RAM);
+    $readmemh(
+        "C:/Users/User/Desktop/Post-Quantum-Cryptography-Accelerator/hdl/encryption/main_computation/rom_zetas_inv.mem",
+        RAM
+    );
+    // synthesis translate_off
+    if ($isunknown(RAM[0]))
+      $fatal(1, "Failed to load rom_zetas_inv.mem");
+    // synthesis translate_on
   end
 
   always @(posedge clk) begin

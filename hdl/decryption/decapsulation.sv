@@ -70,7 +70,7 @@ From pre-decryption to post-decryption.
 `timescale 1ns/1ps
 import params_pkg::*;
 import enums_pkg::*;
-module decryption_top#(
+module decapsulation #(
     parameter SK_WIDTH = (KYBER_N *  KYBER_RQ_WIDTH * KYBER_K) + //s
                          (KYBER_N * KYBER_RQ_WIDTH * KYBER_K) + KYBER_N + // pk
                          (2 * KYBER_N)//pre_k + coin
@@ -115,12 +115,83 @@ logic reduce_done;
 logic compress_encode_start;
 logic compress_encode_done;
 logic post_decrypt_start;
-assign main_comp_start = decode_ct_done;//start main computation when decode_ct is done
 assign reduce_start = main_comp_done;//start reduce when main computation is done
 assign compress_encode_start = reduce_done;//start compress_encode when reduce is done
 assign post_decrypt_start = compress_encode_done;//start post_decryption when compress_encode is done
 
-pre_decryption pre_decryption_utt(
+// Latch the decode completion request and hold enable high until the complete
+// main-computation transaction finishes. main_computation only samples enable
+// while idle, so keeping it asserted is safe and avoids losing a short pulse.
+logic main_comp_request;
+logic debug_decode_done_seen;
+logic debug_main_start_seen;
+logic debug_main_done_seen;
+logic debug_reduce_done_seen;
+logic debug_compress_done_seen;
+logic debug_post_start_seen;
+logic debug_decrypt_done_seen;
+assign main_comp_start = main_comp_request;
+
+always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
+        main_comp_request <= 1'b0;
+        debug_decode_done_seen <= 1'b0;
+        debug_main_start_seen  <= 1'b0;
+        debug_main_done_seen   <= 1'b0;
+        debug_reduce_done_seen <= 1'b0;
+        debug_compress_done_seen <= 1'b0;
+        debug_post_start_seen <= 1'b0;
+        debug_decrypt_done_seen <= 1'b0;
+    end else begin
+        if (decode_ct_done) begin
+            main_comp_request <= 1'b1;
+            debug_decode_done_seen <= 1'b1;
+        end else if (main_comp_done) begin
+            main_comp_request <= 1'b0;
+        end
+
+        if (main_comp_request)
+            debug_main_start_seen <= 1'b1;
+        if (main_comp_done)
+            debug_main_done_seen <= 1'b1;
+        if (reduce_done)
+            debug_reduce_done_seen <= 1'b1;
+        if (compress_encode_done)
+            debug_compress_done_seen <= 1'b1;
+        if (post_decrypt_start)
+            debug_post_start_seen <= 1'b1;
+        if (decrypt_done)
+            debug_decrypt_done_seen <= 1'b1;
+    end
+end
+
+// Optimized hash controller used by post_decryption. The nested re-encryption
+// encryption_top has its own controller because both blocks are self-contained.
+logic post_hash_start;
+logic [1:0] post_hash_mode;
+logic [15:0] post_hash_input_length;
+logic post_hash_matrix_gen;
+logic post_hash_msg_wr_en;
+logic [10:0] post_hash_msg_wr_addr;
+logic [7:0] post_hash_msg_wr_data;
+logic [5375:0] post_hash_message_out;
+logic post_hash_valid;
+
+hash_controller post_decryption_hash_inst (
+    .clk         (clk),
+    .rst         (rst),
+    .msg_wr_en   (post_hash_msg_wr_en),
+    .msg_wr_addr (post_hash_msg_wr_addr),
+    .msg_wr_data (post_hash_msg_wr_data),
+    .enable      (post_hash_start),
+    .hash_mode   (post_hash_mode),
+    .matrix_gen  (post_hash_matrix_gen),
+    .input_length(post_hash_input_length),
+    .message_out (post_hash_message_out),
+    .valid       (post_hash_valid)
+);
+
+pre_decryption pre_decryption_inst(
     .ct(ct),
     .sk(sk),
     .c1(c1),
@@ -138,7 +209,7 @@ always_ff @(posedge clk or posedge rst) begin
     end
 end
 
-decode_ct decode_ct_utt(
+decode_ct decode_ct_inst(
     .clk(clk),
     .rst(rst),
     .enable(pre_dec_valid),
@@ -149,12 +220,12 @@ decode_ct decode_ct_utt(
     .decompress_done(decode_ct_done)
 );
 
-decode_sk decode_sk_uut (
+decode_sk decode_sk_inst (
     .s(s),
     .s_t(s_t)
 );
 
-main_computation main_computation_uut (
+main_computation main_computation_inst (
       .clk(clk),
       .reset(rst),
       .enable(main_comp_start),  // start main computation when decode_ct is done
@@ -167,13 +238,14 @@ main_computation main_computation_uut (
       .valid(main_comp_done)
   );
 
-subtract subtract_uut (
+subtract subtract_inst (
     .a(v),
     .b(a),
     .r(b)
 );
 
-reduce reduce_dec_uut (
+reduce #(
+) reduce_dec_inst (
     .clk(clk),
     .rst(rst),
     .enable(reduce_start),      //start reduce when main computation is done
@@ -182,7 +254,7 @@ reduce reduce_dec_uut (
     .reduce_done(reduce_done),
     .out_poly(out_v)
 );
-compress_encode_dec compress_encode_dec_utt(
+compress_encode_dec compress_encode_dec_inst(
     .clk(clk),
     .rst(rst),
     .enable(compress_encode_start),
@@ -190,7 +262,7 @@ compress_encode_dec compress_encode_dec_utt(
     .m(m),
     .done(compress_encode_done)
 );
-post_decryption post_decryption_uut (
+post_decryption post_decryption_inst (
     .clk(clk),
     .rst(rst),
     .enable(post_decrypt_start),
@@ -199,6 +271,15 @@ post_decryption post_decryption_uut (
     .ct(ct),
     .coin(coin),
     .PK(PK),
+    .hash_valid(post_hash_valid),
+    .hash_message_out(post_hash_message_out),
+    .hash_start(post_hash_start),
+    .hash_mode(post_hash_mode),
+    .hash_input_length(post_hash_input_length),
+    .hash_matrix_gen(post_hash_matrix_gen),
+    .hash_msg_wr_en(post_hash_msg_wr_en),
+    .hash_msg_wr_addr(post_hash_msg_wr_addr),
+    .hash_msg_wr_data(post_hash_msg_wr_data),
     .f(f),
     .ss(ss),
     .decrypt_done(decrypt_done)

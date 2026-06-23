@@ -27,7 +27,7 @@ logic [7:0] idx; // 0-255
 logic reduce_start;
 
  // Reduce module
-    reduce reduce_uut(
+    reduce reduce_inst(
     .clk(clk), 
     .rst(rst),
     .enable(reduce_start),

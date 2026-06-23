@@ -52,7 +52,7 @@ module reduce#(
     input clk,
     input rst,
     input enable,
-    input logic [15:0] in_poly [0:N-1],
+    input logic signed [15:0] in_poly [0:N-1],
     output logic busy,
     output reg reduce_done,
     output logic [11:0] out_poly [0:N-1]

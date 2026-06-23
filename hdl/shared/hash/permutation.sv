@@ -19,26 +19,26 @@ module permutation (
   // round index for iota (5-bit, sized)
   wire [4:0] ir_w = round - 1;
 
-  theta theta_uut (
+  theta theta_inst (
       .state_in (state_buffer),
       .state_out(theta_out)
   );
 
-  rho rho_uut (
+  rho rho_inst (
       .state_in (theta_out),
       .state_out(rho_out)
   );
 
-  pi pi_uut (
+  pi pi_inst (
       .state_in (rho_out),
       .state_out(pi_out)
   );
-  chi chi_uut (
+  chi chi_inst (
       .state_in (pi_out),
       .state_out(chi_out)
   );
 
-  iota iota_uut (
+  iota iota_inst (
       .state_in(chi_out),
       .state_out(iota_out),
       .ir(ir_w)

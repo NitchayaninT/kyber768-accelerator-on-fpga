@@ -62,7 +62,7 @@ module post_decryption (
   reg noise_done;
 
   // 1. (c', pre-k') = SHA3-512(pre-k, m)
-  sha3_512 sha3_512_uut (
+  sha3_512 sha3_512_inst (
       .clk(clk),
       .enable(enable),
       .rst(rst),
@@ -73,17 +73,17 @@ module post_decryption (
   );
 
   // 2. Ct' = IND-CPA-KyberEncryption(m',PK,c'), from decode PK to after post-encryption
-  decode_msg dmsg_uut (
+  decode_msg dmsg_inst (
       .msg(msg),
       .poly_msg(msg_poly)
   );
-  decode_pk dpk_uut (
+  decode_pk dpk_inst (
       .public_key(encryption_key),
       .rho(rho),
       .t_trans(t_vec),
       .done(public_matrix_valid)
   );
-  public_matrix_gen pmg_uut (
+  public_matrix_gen pmg_inst (
       .clk(clk),
       .rst(rst),
       .enable(public_matrix_valid),
@@ -94,7 +94,7 @@ module post_decryption (
       .A(a_t)
   );
 
-  noise_gen ng_uut (
+  noise_gen ng_inst (
       .clk(clk),
       .rst(rst),
       .enable(noise_gen_valid),  // can start noise gen after getting c' and pre-k'

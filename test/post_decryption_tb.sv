@@ -4,7 +4,6 @@ import params_pkg::*;
 module post_decryption_tb;
     reg clk;
     reg enable; // when m_prime input is available
-    reg prek_enable; // when pre_k input is available from compress encode
     reg rst;
     reg  [KYBER_N - 1:0] m_prime; // message from decryption
     reg  [KYBER_N - 1:0] pre_k; // from SK, used for sha3-512 to get coin prime and pre-k prime
@@ -14,17 +13,49 @@ module post_decryption_tb;
     wire f; // flag
     wire [KYBER_N-1:0] ss;
     wire decrypt_done;
+
+    logic hash_start;
+    logic [1:0] hash_mode;
+    logic [15:0] hash_input_length;
+    logic hash_matrix_gen;
+    logic hash_msg_wr_en;
+    logic [10:0] hash_msg_wr_addr;
+    logic [7:0] hash_msg_wr_data;
+    logic [5375:0] hash_message_out;
+    logic hash_valid;
+
+    hash_controller post_dec_hash (
+        .clk         (clk),
+        .rst         (rst),
+        .msg_wr_en   (hash_msg_wr_en),
+        .msg_wr_addr (hash_msg_wr_addr),
+        .msg_wr_data (hash_msg_wr_data),
+        .enable      (hash_start),
+        .hash_mode   (hash_mode),
+        .matrix_gen  (hash_matrix_gen),
+        .input_length(hash_input_length),
+        .message_out (hash_message_out),
+        .valid       (hash_valid)
+    );
     
     post_decryption post_decryption_uut (
         .clk         (clk),
         .enable      (enable),
-        .prek_enable (prek_enable),
         .rst         (rst),
         .m_prime     (m_prime), // message from decryption
         .pre_k       (pre_k), // pre-k from pre-decryption
         .ct          (ct),
         .coin        (coin),
         .PK          (PK),
+        .hash_valid(hash_valid),
+        .hash_message_out(hash_message_out),
+        .hash_start(hash_start),
+        .hash_mode(hash_mode),
+        .hash_input_length(hash_input_length),
+        .hash_matrix_gen(hash_matrix_gen),
+        .hash_msg_wr_en(hash_msg_wr_en),
+        .hash_msg_wr_addr(hash_msg_wr_addr),
+        .hash_msg_wr_data(hash_msg_wr_data),
         .f           (f),
         .ss          (ss),
         .decrypt_done(decrypt_done)
@@ -37,7 +68,7 @@ module post_decryption_tb;
         $monitor("c_prime (dec) = %h\n", post_decryption_uut.c_prime); // c prime is used as a coin for re-encryption
         $monitor("pre_k_prime = %h\n", post_decryption_uut.pre_k_prime); // pre-k prime is used to generate shared secret if ct doesn't match 
         $monitor("f = %d\n", post_decryption_uut.f);
-        $monitor("ct_coin_reg (coin | ct hashed) = %h\n", post_decryption_uut.ct_coin_reg);
+        $monitor("KDF input (selected key | ct hash) = %h\n", post_decryption_uut.kdf_input);
         clk = 0;
     end
     
@@ -54,7 +85,6 @@ module post_decryption_tb;
         ct = 8704'hca176818610cb5572ba910bd1773f071291c1e99210802ff7d97de52cf3d3ff017520fad07bfada4bcbc9a6a2f9fafc77df48596336016b6c038455e75920c7b08b2983d33f83016c1371b05db098008c02bbab0815ca5a85d3c88b9c8da495b135aad7477f9be0642cf15583d9de75d591b6322b9256e96149efce11085605b8575e926cebafd10860697c5f59545530fb6fe2a6d1b826510c7f43c8374734cd4ebe3708eed2738b42d49bb23bb3e534ae5987a4ffa986e2be27bcc0f10b3a5cae0c00963871c675031b4ad090ebbeec1a2ca24727faa7df41f21e7d340cde775e38d1fa29dc85bc2d15186394fad37c74e1c0387b0d9b6630b15b0e5bd3156f84d972c6f7b2763198d5fab6e36de227585915b167dfc5ae7e9d0229bb596e211db8b3bca38825fb3f411876aa4bcbbee82686220d791e3caca93cc9bc7e23af91ea22c624151cac9380023e32b5aaa5a7d9c6ca271908aa03b093147786cce2be77385b864d5ba6061b25ef721ce5b7238961891d761ab93731fe030d870fe66d72a824972443940d587b5cc73dbaed8b061efde2710ce4749a24bc6f02fbb9c127f206f2b8aac5414a101aa09c7797bca61b0aa94830bd4ba3d18a89fb84bb1ec7ae478074a548f359183a828825d31edea61a2f695054c3ce0f7cfa0915c2a52d18cb5e2680d330873e7c055bd0c298be29d6353532a2bce4940b50a2a8a11f056db00e19d658b2dd0b3b69dc4b3553e478d7dff292294e51a380b5adc54b5526c262170ad4bd61f67c961cf00fd7690a4250dd32e05466b49f651ab2d500c5f56410a40f23b7f83459111a89c0e7a3468a9a0de0b746b735336d87b14fd8c2cde69da5b0f1efb275c24956c687befe390679e9ed24f20c6c28c50f93e5d87037492274c5889909de7db5c57cb7e12c5d202d8f6e4a0430b42ed1f07c23efd55881b4a4d188f5b0744a6a2dd4fb95e6a36fa56124464624e305d241b6e172fd8c3dc4a786902b06a6b366d26f38f8b1f0e11554f97c4274ec5875bf1f82ade92540fdf545673a729f960afd79911a6e3caeee9d9947ba04809bcf3922d308f2e38e386ad17794d0a1b58a4b567b2487e0e3ac6021841124ea2513b4286f0687114d4f2f1eee721772d54328d4e05fc07fe44cddd707bc9e4410332c85b9b5758119d873c8d3209de53b1440278ccfd435945e1d39774b1f1cbde135cedea1dd097955f0f545654d73824b422cc26edec2e86e6f7a3ebef5e566a5ce7305cc1cc1a0d3de7446041d11020b98f5d542339a97f68a83e3a0215b0db3ac95f8e1c9955e89370b22bf5c340155587ce44fa26c758378f5b357fa6d258362a34ed3e302d0baab63d695c0b4bc370da4b04fd02e41a2543c3a39b49337947affe689fa58991efd3d448f8f74b78f5ccff0b2f2330350a279f7c577605e0527cc83e0510d9a5ac2535c2b744601dd71e3b40ecef4b67116ad077f17c0c37fe394d74ea3bc892fb4e2b28b61aabbe5852be736dc858726a89ca571955bf81f9a783af;
 
         enable = 0;
-        prek_enable = 0;
 
         // hold reset for a few cycles
         repeat (5) @(posedge clk);
@@ -63,7 +93,8 @@ module post_decryption_tb;
         // wait a cycle, then pulse start
         repeat (2) @(posedge clk);
         enable = 1; // suppose
-        prek_enable = 1; // suppose
+        @(posedge clk);
+        enable = 0;
 
         
         $display("Mode : %d",post_decryption_uut.encrypt_post_dec.mode); // enc = 0, dec = 1

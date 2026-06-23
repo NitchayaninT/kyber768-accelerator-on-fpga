@@ -10,6 +10,7 @@ module decode_pk (
     output wire [(KYBER_RQ_WIDTH * KYBER_N) - 1 : 0] t_trans[3],
     output wire done
 );
+  assign rho = public_key[255:0];
   // Noted that concept of transpose in FPGA does not make much sense since we
   // just save in the net variables just wire differently
   /*
@@ -46,40 +47,34 @@ module decode_pk (
   //public_key = 256 + 3 * 3072, which is 32 bytes and 3 384 bytes
   //t0 - t2 each 384 bytes (1152 bytes), rho is 32 bytes
   // total = 1184 bytes
-  genvar p, i, b;
-  // copy byte 1152 - 1183 to rho
-  generate
-    for (b = 0; b < 32; b++) begin : G_RHO
-      assign rho[255 - 8*b -: 8] = public_key[8*(1152 + b) +: 8];
+genvar p, i;
+generate
+  for (p = 0; p < KYBER_K; p++) begin : G_POLY
+    for (i = 0; i < KYBER_N/2; i++) begin : G_COEFF
+      localparam int BASE_BYTE = p*384 + 3*i;
+
+      wire [7:0] byte0;
+      wire [7:0] byte1;
+      wire [7:0] byte2;
+
+      assign byte0 = public_key[9471 - 8*(BASE_BYTE    ) -: 8];
+      assign byte1 = public_key[9471 - 8*(BASE_BYTE + 1) -: 8];
+      assign byte2 = public_key[9471 - 8*(BASE_BYTE + 2) -: 8];
+
+      assign t_trans[p][12*(2*i) +: 12] =
+          ({4'b0, byte0} |
+           ({4'b0, byte1} << 8)) & 12'hFFF;
+
+      assign t_trans[p][12*(2*i+1) +: 12] =
+          (({4'b0, byte1} >> 4) |
+           ({4'b0, byte2} << 4)) & 12'hFFF;
     end
-  endgenerate
-  // coeff0 = (byte0 | (byte1 << 8)) & 0xfff;
-  // coeff1 = (byte1 >> 4) | (byte2 << 4)  & 0xfff;
-  /*byte0:  [ coeff0 bits 0..7 ]
+  end
+endgenerate
 
-    byte1:  [ coeff1 bits 0..3 ][ coeff0 bits 8..11 ]
-
-    byte2:  [ coeff1 bits 4..11 ]
-    every 2 coefficients are packed into 3 bytes
-  */
-  generate
-    for (p = 0; p < KYBER_K; p++) begin : G_POLY
-      for (i = 0; i < KYBER_N/2; i++) begin : G_COEFF
-        localparam int BASE_BYTE = p*384 + 3*i;
-
-        assign t_trans[p][12*(2*i) +: 12] =
-            ({4'b0, public_key[8*(BASE_BYTE+0) +: 8]} |
-             ({4'b0, public_key[8*(BASE_BYTE+1) +: 8]} << 8)) & 12'hFFF;
-
-        assign t_trans[p][12*(2*i+1) +: 12] =
-            (({4'b0, public_key[8*(BASE_BYTE+1) +: 8]} >> 4) |
-             ({4'b0, public_key[8*(BASE_BYTE+2) +: 8]} << 4)) & 12'hFFF;
-      end
-    end
-  endgenerate
-
-  assign done = 1'b1;
+assign done = 1'b1;
 endmodule
+
 /* explanation:
   Big-endian:
       first byte goes to high is big endian which is AABBCCDD, 

@@ -288,7 +288,7 @@ module main_computation (
   logic ntt_ram_en_predec, ntt_ram_we_predec;
 
   // TODO choosing to write only in their ntt_rounds
-  ntt ntt_dut (
+  ntt ntt_inst (
       .clk               (clk),
       .reset             (reset),
       .enable            (ntt_enable_delay),
@@ -324,6 +324,18 @@ module main_computation (
   //or pvbm_enable_or = pvbm_enable || pvbm_enable_delay;
 
   logic pvbm_start, pvbm_valid;
+  // synthesis translate_off
+  logic debug_dec_pvbm_write_seen;
+  logic debug_dec_pvbm_write_x_seen;
+  logic [7:0] debug_dec_pvbm_write_count;
+  logic debug_dec_pvbm_ram0_x_seen;
+  logic debug_dec_pvbm_ram1_x_seen;
+  logic debug_dec_pvbm_zeta_x_seen;
+  logic [31:0] debug_dec_pvbm_word0;
+  logic [31:0] debug_dec_pvbm_word1;
+  logic [31:0] debug_dec_pvbm_word2;
+  logic [31:0] debug_dec_pvbm_word3;
+  // synthesis translate_on
   logic [2* KYBER_POLY_WIDTH -1 : 0] pvbm_ram0_read_data_a [3];
   logic [2* KYBER_POLY_WIDTH -1 : 0] pvbm_ram0_read_data_b [3];
   logic [2* KYBER_POLY_WIDTH -1 : 0] pvbm_ram1_read_data_a [3];
@@ -348,6 +360,68 @@ module main_computation (
   assign pvbm_ram_dina = pvbm_ram_write_data_a;
   assign pvbm_ram_dinb = pvbm_ram_write_data_b;
   logic pvbm_ram_we_predec, pvbm_ram_en_predec;
+
+  // synthesis translate_off
+  // Track the DEC dot-product result written to RAM 9 before inverse NTT.
+  always_ff @(posedge clk) begin
+    if (reset) begin
+      debug_dec_pvbm_write_seen   <= 1'b0;
+      debug_dec_pvbm_write_x_seen <= 1'b0;
+      debug_dec_pvbm_write_count  <= '0;
+      debug_dec_pvbm_ram0_x_seen  <= 1'b0;
+      debug_dec_pvbm_ram1_x_seen  <= 1'b0;
+      debug_dec_pvbm_zeta_x_seen  <= 1'b0;
+      debug_dec_pvbm_word0        <= '0;
+      debug_dec_pvbm_word1        <= '0;
+      debug_dec_pvbm_word2        <= '0;
+      debug_dec_pvbm_word3        <= '0;
+    end else if ((mode == DEC) &&
+                 (current_state == MC_POLYVEC_BASEMUL) &&
+                 (pvbm_current_state == MC_PVBM_T_S)) begin
+      // Sample only when PVBM actually launches the basemul operation.
+      // Sampling on ram_en is one cycle too early for synchronous RAM/ROM.
+      if (polyvec_basemul_montgomery.basemul_start) begin
+        if ($isunknown(pvbm_ram0_read_data_a[0]) ||
+            $isunknown(pvbm_ram0_read_data_a[1]) ||
+            $isunknown(pvbm_ram0_read_data_a[2]) ||
+            $isunknown(pvbm_ram0_read_data_b[0]) ||
+            $isunknown(pvbm_ram0_read_data_b[1]) ||
+            $isunknown(pvbm_ram0_read_data_b[2]))
+          debug_dec_pvbm_ram0_x_seen <= 1'b1;
+
+        if ($isunknown(pvbm_ram1_read_data_a[0]) ||
+            $isunknown(pvbm_ram1_read_data_a[1]) ||
+            $isunknown(pvbm_ram1_read_data_a[2]) ||
+            $isunknown(pvbm_ram1_read_data_b[0]) ||
+            $isunknown(pvbm_ram1_read_data_b[1]) ||
+            $isunknown(pvbm_ram1_read_data_b[2]))
+          debug_dec_pvbm_ram1_x_seen <= 1'b1;
+
+        if ($isunknown(zeta_a))
+          debug_dec_pvbm_zeta_x_seen <= 1'b1;
+      end
+
+      if (pvbm_ram_we_predec) begin
+        debug_dec_pvbm_write_seen  <= 1'b1;
+        debug_dec_pvbm_write_count <= debug_dec_pvbm_write_count + 1'b1;
+        if ($isunknown(pvbm_ram_write_data_a) ||
+            $isunknown(pvbm_ram_write_data_b))
+          debug_dec_pvbm_write_x_seen <= 1'b1;
+      end
+    end
+  end
+
+  // Snapshot DEC PVBM output before inverse NTT overwrites RAM 9.
+  always_ff @(posedge clk) begin
+    if (!reset && (mode == DEC) && pvbm_done) begin
+      debug_dec_pvbm_word0 <= g_bram[9].rams_dp.RAM[0];
+      debug_dec_pvbm_word1 <= g_bram[9].rams_dp.RAM[1];
+      debug_dec_pvbm_word2 <= g_bram[9].rams_dp.RAM[2];
+      debug_dec_pvbm_word3 <= g_bram[9].rams_dp.RAM[3];
+    end
+  end
+  // synthesis translate_on
+
   polyvec_basemul_montgomery polyvec_basemul_montgomery (
       .clk             (clk),
       .reset           (reset),
@@ -729,13 +803,25 @@ module main_computation (
   // TODO : this is temporary fix for sending output as net
   logic [7:0] wo_addra[2];
   logic [7:0] wo_addrb[2];
+  // synthesis translate_off
+  logic debug_v_a_write_seen;
+  logic debug_v_a_write_x_seen;
+  logic [7:0] debug_v_a_write_count;
+  // synthesis translate_on
   assign wo_addra[0] = (current_state == MC_INV_NTT) ? (inv_ntt_ram_addra << 1) : 0;
   assign wo_addra[1] = (current_state == MC_INV_NTT) ? (inv_ntt_ram_addra << 1) + 1 : 0;
   assign wo_addrb[0] = (current_state == MC_INV_NTT) ? (inv_ntt_ram_addrb << 1) : 0;
   assign wo_addrb[1] = (current_state == MC_INV_NTT) ? (inv_ntt_ram_addrb << 1) + 1 : 0;
   always_ff @(posedge clk) begin
+    // synthesis translate_off
+    if (reset) begin
+      debug_v_a_write_seen   <= 1'b0;
+      debug_v_a_write_x_seen <= 1'b0;
+      debug_v_a_write_count  <= '0;
+    end
+    // synthesis translate_on
     inv_ntt_current_state <= inv_ntt_next_state;
-    if (ntt_dut.last_stage == 1)
+    if (ntt_inst.last_stage == 1)
       unique case (inv_ntt_current_state)
         MC_INV_NTT_IDLE: ;
         MC_INV_NTT_AT0: begin
@@ -765,6 +851,12 @@ module main_computation (
         end
         MC_INV_NTT_T_S: begin
           if (ntt_ram_we_predec) begin
+            // synthesis translate_off
+            debug_v_a_write_seen  <= 1'b1;
+            debug_v_a_write_count <= debug_v_a_write_count + 1'b1;
+            if ($isunknown(inv_ntt_ram_dina) || $isunknown(inv_ntt_ram_dinb))
+              debug_v_a_write_x_seen <= 1'b1;
+            // synthesis translate_on
             v_a[wo_addra[0]] <= $signed(inv_ntt_ram_dina[`LOWER_BITS]);
             v_a[wo_addra[1]] <= $signed(inv_ntt_ram_dina[`HIGHER_BITS]);
             v_a[wo_addrb[0]] <= $signed(inv_ntt_ram_dinb[`LOWER_BITS]);

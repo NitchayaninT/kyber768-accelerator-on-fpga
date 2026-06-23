@@ -47,7 +47,8 @@ Optimization
 module reduce #(
     parameter int N = 256,
     parameter int Q = 3329,
-    parameter int V = 20159  //v = (2^26 + 3329/2)/3329 == 20159 for Q=3329
+    parameter int V = 20159,  //v = (2^26 + 3329/2)/3329 == 20159 for Q=3329
+    parameter bit CANONICAL_OUTPUT = 1'b0
 ) (
     input clk,
     input rst,
@@ -75,6 +76,22 @@ module reduce #(
       t = q_est * Q;  // t = q_est * Q
       result = a - t;  // return a - t
       barrett_reduce = result[15:0];
+    end
+  endfunction
+
+  // poly_tomsg requires coefficients in [0, q). Barrett reduction returns a
+  // signed representative, commonly in approximately [-q/2, q/2].
+  function automatic logic [11:0] canonical_reduce(input logic signed [15:0] a);
+    logic signed [15:0] reduced;
+    logic signed [16:0] canonical;
+    begin
+      reduced = barrett_reduce(a);
+      canonical = reduced;
+      if (canonical < 0)
+        canonical = canonical + Q;
+      else if (canonical >= Q)
+        canonical = canonical - Q;
+      canonical_reduce = canonical[11:0];
     end
   endfunction
 
@@ -119,7 +136,10 @@ module reduce #(
 
         // 1 coefficient per cycle
         RUN: begin
-          out_poly[idx] <= barrett_reduce(poly_buf[idx]);
+          if (CANONICAL_OUTPUT)
+            out_poly[idx] <= canonical_reduce(poly_buf[idx]);
+          else
+            out_poly[idx] <= barrett_reduce(poly_buf[idx]);
 
           if (idx == N - 1) begin
             state <= FINISH;

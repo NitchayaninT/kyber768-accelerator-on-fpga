@@ -12,7 +12,14 @@ module rom_zetas (
   logic signed [KYBER_POLY_WIDTH - 1:0] RAM[128];
 
   initial begin
-    $readmemh("rom_zetas.mem", RAM);
+    $readmemh(
+        "C:/Users/User/Desktop/Post-Quantum-Cryptography-Accelerator/hdl/encryption/main_computation/rom_zetas.mem",
+        RAM
+    );
+    // synthesis translate_off
+    if ($isunknown(RAM[0]))
+      $fatal(1, "Failed to load rom_zetas.mem");
+    // synthesis translate_on
   end
 
   always @(posedge clk) begin

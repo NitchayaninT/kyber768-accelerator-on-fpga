@@ -26,7 +26,7 @@ initial begin
     $dumpfile("dump.vcd");
     $dumpvars(0, reduce_top_tb);
     $monitor("Time: %0t, reduce_done: %b", $time, reduce_done);
-    $monitor("out poly  : %0d", reduce_top_uut.reduce_uut.out_poly);
+    $monitor("out poly  : %0d", reduce_top_uut.reduce_inst.out_poly);
  
     clk = 0;
     forever #(`DELAY / 2) clk = ~clk;

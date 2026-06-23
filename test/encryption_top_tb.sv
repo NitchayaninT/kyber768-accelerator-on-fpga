@@ -20,6 +20,9 @@ module encrytion_top_tb;
       .encryption_key(encryption_key),
       .pre_k         (pre_k),
       .ss1           (ss1),
+      .mode          (0), // ENC =  0, DEC = 1
+      .m_prime       (0),//for decrypt
+      .c_prime       (0), //for decrypt
       .ct_out        (ct_out),
       .encrypt_done  (encrypt_done)
   );
@@ -56,6 +59,18 @@ module encrytion_top_tb;
     for (int i = 0; i < 32; i++)
       $write("%02x", uut.pre_enc_inst.hash_ek_latched[8*i +: 8]);
     $write("\n");
+
+    $display("T_TRANS POLYS VECTOR");
+    for (j = 0; j < 3; j++) begin
+      $display("=== t_trans Poly %0d ===", j);
+      for (i = 0; i < 256; i++) begin
+        coeff = uut.t_vec[j][12*i +: 12];
+        $write("%0d ", coeff);
+        if ((i % 16) == 15) $write("\n");
+      end
+      $write("\n");
+    end
+
     $display("A_T (public matrix)");
     for (j = 0; j < 9; j++) begin
       $display("=== A_t poly %0d ===", j);
