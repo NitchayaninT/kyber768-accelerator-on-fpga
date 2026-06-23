@@ -13,7 +13,7 @@ module rom_zetas_inv (
 
   initial begin
     $readmemh(
-        "C:/Users/User/Desktop/Post-Quantum-Cryptography-Accelerator/hdl/encryption/main_computation/rom_zetas_inv.mem",
+        "rom_zetas_inv.mem",
         RAM
     );
     // synthesis translate_off
