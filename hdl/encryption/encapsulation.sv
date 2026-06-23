@@ -1,8 +1,8 @@
-// ENCRYPTION_TOP MODULE
+// ENCAPSULATION MODULE
 `timescale 1ns / 1ps
 import params_pkg::*;
 
-module encryption_top (
+module encapsulation (
     input clk,
     input rst,
     input start,

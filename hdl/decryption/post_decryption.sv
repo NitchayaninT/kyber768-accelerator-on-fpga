@@ -62,7 +62,7 @@ module post_decryption (
   logic [8703:0] ct_prime_stream_order;
   logic [8703:0] ct_prime;
 
-  // encryption_top exposes ciphertext with stream byte 0 at the MSB because
+  // encapsulation exposes ciphertext with stream byte 0 at the MSB because
   // that is the convention used by the standalone encryption interface.
   // Decryption stores input stream byte 0 at the LSB. Normalize only here,
   // without changing the already-working encryption output convention.
@@ -85,7 +85,7 @@ module post_decryption (
   logic debug_reencrypt_reduce_seen;
   logic debug_reencrypt_compress_seen;
 
-  encryption_top encrypt_post_dec (
+  encapsulation encrypt_post_dec (
       .clk           (clk),
       .rst           (rst),
       .start         (encryption_start),

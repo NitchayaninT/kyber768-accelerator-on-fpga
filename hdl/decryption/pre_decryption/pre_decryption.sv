@@ -29,7 +29,7 @@ module pre_decryption #(
         s     = sk[(KYBER_N * KYBER_RQ_WIDTH * KYBER_K)-1 : 0];
 
         // sk is loaded byte-wise with byte 0 in the least-significant bits.
-        // encryption_top expects the public key in the same packed layout as
+        // encapsulation expects the public key in the same packed layout as
         // a 9472'h<t0||t1||t2||rho> literal, so reverse the 1184 PK bytes.
         for (i = 0; i < 1184; i = i + 1)
             PK[9471 - 8*i -: 8] =

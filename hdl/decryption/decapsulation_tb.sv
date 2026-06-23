@@ -24,7 +24,7 @@
                 this means the bug is in re-encryption
             4.4 check PK into re-encryption
                 result: PK matches C, the problem is in re-encryption
-            4.5 check msg_poly in pre_encryption (4. Decode decompress msg) in encryption_top
+            4.5 check msg_poly in pre_encryption (4. Decode decompress msg) in encapsulation
                 result: normal
             4.6 check r,e1,e2 to check noise generation in pre_encryption(7. Noise Generation)
                 result: matches with C result

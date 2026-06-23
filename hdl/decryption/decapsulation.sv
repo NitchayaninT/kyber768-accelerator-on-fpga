@@ -166,7 +166,7 @@ always_ff @(posedge clk or posedge rst) begin
 end
 
 // Optimized hash controller used by post_decryption. The nested re-encryption
-// encryption_top has its own controller because both blocks are self-contained.
+// encapsulation has its own controller because both blocks are self-contained.
 logic post_hash_start;
 logic [1:0] post_hash_mode;
 logic [15:0] post_hash_input_length;

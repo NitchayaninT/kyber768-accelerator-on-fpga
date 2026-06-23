@@ -2,7 +2,7 @@
 `define DELAY 2;
 import params_pkg::*;
 
-module encrytion_top_tb;
+module encapsulation_tb;
   logic clk, rst, start;
   logic [KYBER_N -1 : 0] r_in;
   logic [(KYBER_N)+(KYBER_K * KYBER_RQ_WIDTH * KYBER_N)-1:0] encryption_key; // public key from keygen
@@ -12,7 +12,7 @@ module encrytion_top_tb;
   logic encrypt_done;  // DONE WITH ENCRYPTION
   reg signed [15:0] coeff;
 
-  encryption_top uut (
+  encapsulation uut (
       .clk           (clk),
       .rst           (rst),
       .start         (start),
